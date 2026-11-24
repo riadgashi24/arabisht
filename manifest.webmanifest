@@ -1,7 +1,7 @@
 {
-  "name": "Arabisht nga shqipja",
-  "short_name": "Arabisht",
-  "description": "Mëso arabisht nga shqipja: një njësi në javë, një mësim në ditë.",
+  "name": "Mëso Arabisht",
+  "short_name": "Mëso Arabisht",
+  "description": "Mëso arabisht nga shqipja: një mësim në ditë, seri ditësh, përsëritje e zgjuar.",
   "lang": "sq",
   "start_url": "/",
   "scope": "/",
