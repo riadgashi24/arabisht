@@ -82,19 +82,22 @@ p{margin:0 0 12px}.lead{color:var(--mut);max-width:62ch}.mut{color:var(--mut)}.s
 
 /* ---------- KOKA DHE NAVIGIMI ---------- */
 #top{position:sticky;top:0;z-index:20;background:var(--hero1);color:var(--onhero);padding-top:env(safe-area-inset-top)}
-#top .in{max-width:880px;margin:0 auto;display:flex;align-items:center;gap:8px;padding:8px max(5vw,16px);min-height:60px}
-.brand{display:flex;align-items:center;gap:10px;background:none;border:0;cursor:pointer;padding:4px 0;margin-inline-end:auto;color:var(--onhero)}
-.logo{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;background:var(--acc);color:var(--onacc);font:700 22px/1 "Reem Kufi",serif;box-shadow:0 3px 0 var(--accd);padding-bottom:4px}
-.bt{font-weight:700;font-size:17px;letter-spacing:-.01em}
-.tabs{display:flex;gap:4px}
-.tab{display:flex;align-items:center;gap:7px;font-size:15px;min-height:42px;padding:6px 13px;border-radius:12px;border:0;background:none;color:var(--onhero2);cursor:pointer;transition:background .2s,color .2s}
+#top .in{max-width:1200px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:10px max(4vw,16px);min-height:64px}
+.brand{display:flex;align-items:center;gap:11px;background:none;border:0;cursor:pointer;padding:4px 0;color:var(--onhero);flex:none;white-space:nowrap}
+.logo{width:40px;height:40px;border-radius:11px;display:block;box-shadow:0 4px 12px #0000004d,0 0 0 1px #ffffff1f;transition:transform .25s var(--ease)}
+.brand:hover .logo{transform:rotate(-6deg) scale(1.05)}
+.bt{font-weight:500;font-size:18px;letter-spacing:-.01em;color:var(--onhero2)}.bt b{font-weight:700;color:var(--onhero)}
+.tabs{display:flex;gap:2px;flex:1;justify-content:center}
+.tab{display:flex;align-items:center;gap:7px;font-size:15px;font-weight:500;min-height:42px;padding:6px 14px;white-space:nowrap;border-radius:12px;border:0;background:none;color:var(--onhero2);cursor:pointer;transition:background .2s,color .2s}
 .tab:hover{color:var(--onhero)}
 .tab[aria-current=page]{background:#ffffff1f;color:var(--onhero)}
-.chips{display:flex;gap:6px}
+.chips{display:flex;gap:6px;flex:none;margin-inline-start:auto}
 .chip{display:flex;align-items:center;gap:5px;min-height:38px;padding:4px 11px;border-radius:99px;border:0;background:#ffffff14;color:var(--onhero2);font-weight:700;cursor:pointer}
 .chip .ic{width:18px;height:18px}
 .chip.fire.lit{color:#fff}.chip.fire.lit .ic{color:var(--fire);filter:drop-shadow(0 0 6px #ff8a1a99)}
 .chip.bolt .ic{color:var(--gold)}
+.chip.adm{padding:4px 10px}.chip.adm[aria-current=page]{background:#ffffff2e;color:var(--onhero)}
+@media(min-width:721px) and (max-width:1060px){.bt{display:none}#top .in{gap:10px}.tab{padding:6px 10px;font-size:14px}.tab .ic{display:none}}
 body.inlesson #top,body.bare #top{display:none}
 @media(max-width:720px){
  .bt{display:none}

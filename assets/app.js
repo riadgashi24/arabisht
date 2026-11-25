@@ -376,16 +376,17 @@ function lvQuestions(li) {
 /* ---------- KOKA DHE NAVIGIMI ---------- */
 const TABS0 = [['home', 'Mësimi', 'home'], ['dict', 'Fjalori', 'book'], ['rank', 'Renditja', 'trophy'], ['stats', 'Progresi', 'chart'], ['me', 'Profili', 'user']];
 const isAdm = () => !!(ME() && ME().a);
-const TABSF = () => isAdm() ? TABS0.concat([['admin', 'Admin', 'gear']]) : TABS0;
+const TABSF = () => TABS0;
 let tab = 'home';
 function chrome() {
   const si = streakInfo(), TABS = TABSF();
   top.innerHTML = `<div class="in">
-  <button class="brand" data-tab="home" aria-label="Mëso Arabisht, faqja kryesore"><span class="logo">ع</span><span class="bt">Mëso Arabisht</span></button>
+  <button class="brand" data-tab="home" aria-label="Mëso Arabisht, faqja kryesore"><img class="logo" src="/icons/icon.svg" alt="" width="40" height="40"><span class="bt">Mëso <b>Arabisht</b></span></button>
   <nav class="tabs" aria-label="Navigimi kryesor">${TABS.map(([k, l, i]) => `<button class="tab" data-tab="${k}"${tab === k ? ' aria-current="page"' : ''}>${ic(i)}<span>${l}</span>${k === 'rank' && GRP.invites.length ? '<i class="dot" aria-label="ftesë e re"></i>' : ''}</button>`).join('')}</nav>
   <div class="chips">
    <button class="chip fire${si.done ? ' lit' : ''}" data-tab="stats" aria-label="Seria: ${si.n} ditë radhazi">${ic('flame')}<b>${si.n}</b></button>
    <button class="chip bolt" data-tab="stats" aria-label="XP sot: ${xpToday()}">${ic('bolt')}<b>${xpToday()}</b></button>
+   ${isAdm() ? `<button class="chip adm" data-tab="admin"${tab === 'admin' ? ' aria-current="page"' : ''} aria-label="Paneli i administratorit" title="Paneli i administratorit">${ic('gear')}</button>` : ''}
   </div></div>`;
 }
 const VIEWS = { home, dict, rank, stats, me, admin };
