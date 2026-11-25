@@ -6,7 +6,9 @@ Platformë falas për të mësuar arabisht nga shqipja, sipas rrugës së librit
 - **Motivim:** seri ditësh me flakë, ngrirje që e mbrojnë serinë (fitohet një çdo 7 ditë, maksimumi 2), XP, qëllim ditor, 13 medalje, kalendar dhe grafik javor.
 - **5 tema:** Oaza, Shkretëtira, Trëndafili, Smeraldi, Mesnata, plus Automatike (sipas telefonit).
 - **UI:** panel përgjigjeje që del nga poshtë, tinguj (të sintetizuar, pa skedarë), dridhje në telefon, konfeti, karta përsëritjeje që kthehen, seri përgjigjesh të sakta (combo), shirit navigimi poshtë në telefon.
-- 6 njësi × 7 ditë: fjalor, dialogu 1, gramatika, fjalor + dialogu 2, përsëritje e përzier, fol dhe ndërto, testi i javës (80% për ta kaluar).
+- **Nivele (1, 2, 3, 4 …):** çdo nivel ka njësitë e veta dhe mbyllet me **testin e nivelit** (pragu vendoset nga administratori, parazgjedhur 80%). Kur e kalon, hapet niveli tjetër. Kush di më shumë shtyp **“Kalo me test”** dhe, nëse e kalon, fillon direkt nga niveli tjetër.
+- **Paneli i administratorit:** shton, riemërton, rendit dhe fshin nivelet; shton, ndryshon, zhvendos dhe fshin njësitë (fjalor, dialogë, gramatikë, ushtrime); shkarkon/ngarkon programin si JSON. Ndryshimet ruhen në server dhe nxënësit i shohin menjëherë.
+- Çdo njësi × 7 ditë: fjalor, dialogu 1, gramatika, fjalor + dialogu 2, përsëritje e përzier, fol dhe ndërto, testi i javës (80% për ta kaluar).
 - Përsëritje me intervale (1, 2, 4, 7, 15, 30, 60 ditë), zë arabisht në pajisje, fjalor me kërkim.
 - PWA: instalohet në telefon dhe punon pa internet (sinkronizohet kur kthehet lidhja).
 
@@ -16,7 +18,8 @@ Platformë falas për të mësuar arabisht nga shqipja, sipas rrugës së librit
 
 1. Ngarkoje repon në GitHub dhe importoje te vercel.com (**Add New… → Project**, Framework Preset: **Other**, pa Build Command).
 2. **Lidhe databazën (një herë):** te projekti në Vercel → **Storage → Create Database → Upstash for Redis** (plani falas) → **Connect** me projektin. Vercel i shton vetë variablat `KV_REST_API_URL` dhe `KV_REST_API_TOKEN` (pranohen edhe `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`).
-3. **Redeploy.** Gati: `/api/auth` dhe `/api/progress` punojnë.
+3. **Administratori:** te **Settings → Environment Variables** shto `ADMIN_USERS` me emrat e përdoruesve administratorë, të ndarë me presje (p.sh. `riad,ardit`). Ata e shohin skedën **Admin** pasi hyjnë.
+4. **Redeploy.** Gati: `/api/auth`, `/api/progress` dhe `/api/curriculum` punojnë.
 
 Pa hapin 2, aplikacioni hapet, por krijimi i llogarisë kthen mesazhin “Ruajtja në server nuk është lidhur ende”. Mënyra pa llogari punon gjithsesi.
 
@@ -24,16 +27,20 @@ Pa hapin 2, aplikacioni hapet, por krijimi i llogarisë kthen mesazhin “Ruajtj
 ```bash
 node dev-server.js        # http://localhost:8000  (Node 18+)
 ```
+Për administrator lokal: `ADMIN_USERS=emri node dev-server.js` (PowerShell: `$env:ADMIN_USERS='emri'; node dev-server.js`), pastaj krijo llogari me atë emër.
+
 Shërben faqen dhe API-në. Llogaritë ruhen te `.data/db.json` (vetëm për provë, nuk publikohet). XAMPP/Apache nuk e ekzekuton API-në (është Node), prandaj përdor këtë server ose `vercel dev`.
 
 ## Si funksionon llogaria
 - Fjalëkalimet ruhen me `scrypt` + kripë. Seancat janë token të rastësishëm (në server ruhet vetëm hash-i), që skadojnë pas 180 ditësh.
 - Kufizime: 10 përpjekje hyrjeje për 15 min për çdo emër, 20 llogari në orë për çdo IP.
-- Kur dy pajisje kanë progres, ai **bashkohet** (mësimet, fjalët, XP, medaljet), nuk mbishkruhet. Cilësimet merren nga pajisja e ndryshuar së fundi.
+- Kur dy pajisje kanë progres, ai **bashkohet** (mësimet, fjalët, XP, nivelet, medaljet), nuk mbishkruhet. Cilësimet merren nga pajisja e ndryshuar së fundi.
 - Te Profili: ndrysho fjalëkalimin, fshi llogarinë, fillo nga e para.
 
 ## Shtimi i njësive të reja
-Gjithë përmbajtja është te `assets/data.js`. Çdo njësi është një objekt:
+Mënyra më e lehtë: **paneli Admin** në aplikacion. Aty çdo fushë shkruhet një element për rresht, me fushat të ndara me `|` (p.sh. `كِتَابٌ | Libër | kitābun`).
+
+Programi parazgjedhur (kur administratori s'ka ruajtur ende asgjë, ose pas “Rikthe parazgjedhjen”) është te `assets/data.js`: `window.LEVELS` jep nivelet (`id`, `t` emri, `d` përshkrimi, `pass` pragu, `units` numrat e njësive), `window.UNITS` njësitë. Çdo njësi është një objekt:
 
 | Fusha | Çka përmban |
 |---|---|
@@ -46,16 +53,17 @@ Gjithë përmbajtja është te `assets/data.js`. Çdo njësi është një objekt
 
 Te pyetjet `{p:'pyetja', o:[…], ar:1}` **opsioni i parë është gjithmonë i sakti** (radha përzihet vetë). `ar:1` do të thotë që opsionet janë arabisht.
 
-Pasi shton përmbajtje, ndrysho `VERSION` te `sw.js` (p.sh. `arabisht-v3`), që telefonat ta marrin versionin e ri.
+Pasi ndryshon `data.js`, ndrysho `VERSION` te `sw.js` (p.sh. `arabisht-v3`), që telefonat ta marrin versionin e ri.
 
 ## Struktura
 ```
 index.html            faqja
 assets/style.css      stilet dhe 5 temat
-assets/app.js         logjika: llogaria, mësimet, seria, XP, përsëritja, fjalori, progresi
-assets/data.js        përmbajtja e njësive
+assets/app.js         logjika: llogaria, nivelet, mësimet, testet, seria, XP, përsëritja, fjalori, progresi, paneli Admin
+assets/data.js        programi parazgjedhur: nivelet dhe njësitë
 api/auth.js           regjistrimi, hyrja, dalja, fjalëkalimi, fshirja
 api/progress.js       leximi / ruajtja e progresit (me bashkim)
+api/curriculum.js     programi mësimor: lexohet nga të gjithë, ndryshohet vetëm nga administratori
 api/_lib.js           ruajtja (Upstash Redis ose skedar lokal), fjalëkalimet, seancat
 dev-server.js         server për provë lokale
 sw.js                 puna pa internet

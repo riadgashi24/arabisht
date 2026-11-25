@@ -1,6 +1,6 @@
 /* POST /api/auth  {action: signup|login|logout|password|delete, username, password, newPassword} */
 'use strict';
-const { db, hashPw, checkPw, newSession, auth, bearer, th, body, send, ip, wrap } = require('./_lib');
+const { db, isAdmin, hashPw, checkPw, newSession, auth, bearer, th, body, send, ip, wrap } = require('./_lib');
 
 const UN = /^[a-z0-9_.]{3,20}$/;
 const UN_MSG = 'Emri: 3–20 shenja, vetëm shkronja latine (pa ë/ç), numra, _ ose pikë.';
@@ -22,7 +22,7 @@ module.exports = wrap(async (req, res) => {
     if ((await db.incr('rls:' + ip(req), 3600)) > 20) return send(res, 429, { error: 'Shumë llogari nga kjo lidhje. Provo më vonë.' });
     const rec = JSON.stringify({ h: await hashPw(p), c: Date.now() });
     if (!(await db.set('user:' + u, rec, { nx: true }))) return send(res, 409, { error: 'Ky emër është i zënë. Provo një tjetër.' });
-    return send(res, 200, { username: u, token: await newSession(u), data: null });
+    return send(res, 200, { username: u, token: await newSession(u), data: null, admin: isAdmin(u) });
   }
 
   if (a === 'login') {
@@ -31,7 +31,7 @@ module.exports = wrap(async (req, res) => {
     if (!rec || !(await checkPw(p, JSON.parse(rec).h))) return send(res, 401, { error: 'Emri ose fjalëkalimi është gabim.' });
     await db.del('rl:' + u);
     const d = await db.get('prog:' + u);
-    return send(res, 200, { username: u, token: await newSession(u), data: d ? JSON.parse(d) : null });
+    return send(res, 200, { username: u, token: await newSession(u), data: d ? JSON.parse(d) : null, admin: isAdmin(u) });
   }
 
   if (a === 'logout') {

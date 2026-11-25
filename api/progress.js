@@ -1,7 +1,7 @@
 /* GET /api/progress → {data}
    PUT /api/progress {data, replace?} → {data}  (bashkohet me atë që është në server, përveç kur replace:true) */
 'use strict';
-const { db, auth, mergeState, body, send, wrap } = require('./_lib');
+const { db, isAdmin, auth, mergeState, body, send, wrap } = require('./_lib');
 
 module.exports = wrap(async (req, res) => {
   const me = await auth(req);
@@ -10,7 +10,7 @@ module.exports = wrap(async (req, res) => {
 
   if (req.method === 'GET') {
     const d = await db.get(key);
-    return send(res, 200, { data: d ? JSON.parse(d) : null });
+    return send(res, 200, { data: d ? JSON.parse(d) : null, admin: isAdmin(me) });
   }
 
   if (req.method === 'PUT' || req.method === 'POST') {

@@ -62,6 +62,10 @@ async function auth(req) {
   return (await db.get('user:' + u)) ? u : null;
 }
 
+/* administratorët: emrat te variabla ADMIN_USERS (p.sh. "riad,ardit") */
+const ADMINS = String(process.env.ADMIN_USERS || '').toLowerCase().split(/[\s,;]+/).filter(Boolean);
+const isAdmin = u => !!u && ADMINS.includes(String(u).toLowerCase());
+
 /* bashkimi i dy gjendjeve (dy pajisje): asgjë nuk humbet */
 const obj = x => x && typeof x === 'object' && !Array.isArray(x) ? x : {};
 const BAD = k => k === '__proto__' || k === 'constructor' || k === 'prototype';
@@ -76,12 +80,12 @@ function mergeState(a, b) {
     if (BAD(k) || obj(y) !== y) continue;
     cards[k] = !x || +y.b > +x.b || (+y.b === +x.b && String(y.due) > String(x.due)) ? y : x;
   }
-  return { ...nw, done: minD(a.done, b.done), cards, log: maxO(a.log, b.log), xp: maxO(a.xp, b.xp), scores: maxO(a.scores, b.scores),
+  return { ...nw, done: minD(a.done, b.done), cards, log: maxO(a.log, b.log), xp: maxO(a.xp, b.xp), scores: maxO(a.scores, b.scores), lv: maxO(a.lv, b.lv),
     badges: minD(a.badges, b.badges), frz: { ...obj(a.frz), ...obj(b.frz) }, best: Math.max(+a.best || 0, +b.best || 0), at: Math.max(+a.at || 0, +b.at || 0) };
 }
 
 /* kërkesa / përgjigja */
-async function body(req) {
+async function body(req, max = 400000) {
   let b; try { b = req.body; } catch (e) { return null; }
   if (b !== undefined && b !== null) {
     if (Buffer.isBuffer(b)) b = b.toString('utf8');
@@ -90,7 +94,7 @@ async function body(req) {
   }
   return new Promise(ok => {
     let d = '';
-    req.on('data', c => { d += c; if (d.length > 400000) { ok(null); req.destroy(); } });
+    req.on('data', c => { d += c; if (d.length > max) { ok(null); req.destroy(); } });
     req.on('end', () => { try { ok(JSON.parse(d || '{}')); } catch (e) { ok(null); } });
     req.on('error', () => ok(null));
   });
@@ -112,4 +116,4 @@ const wrap = fn => async (req, res) => {
   }
 };
 
-module.exports = { db, hashPw, checkPw, newSession, auth, bearer, th, mergeState, body, send, ip, wrap };
+module.exports = { db, isAdmin, hashPw, checkPw, newSession, auth, bearer, th, mergeState, body, send, ip, wrap };

@@ -1,16 +1,15 @@
 /* Mëso Arabisht — logjika e aplikacionit (pa framework, pa build) */
 (() => {
 'use strict';
-const U = window.UNITS || [], SOON = window.SOON || [];
-const DN = ['Fjalor i ri', 'Dialogu 1', 'Gramatika', 'Fjalor + Dialogu 2', 'Përsëritje e përzier', 'Fol dhe ndërto', 'Testi i javës'];
+const DN =['Fjalor i ri', 'Dialogu 1', 'Gramatika', 'Fjalor + Dialogu 2', 'Përsëritje e përzier', 'Fol dhe ndërto', 'Testi i javës'];
 const INT = [1, 2, 4, 7, 15, 30, 60];
 const PASS = 80;
-const KEY = 'bayna-sq-v1', AKEY = 'bayna-auth';
+const KEY = 'bayna-sq-v1', AKEY = 'bayna-auth', CKEY = 'bayna-cur';
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ---------- GJENDJA ---------- */
-const fresh = () => ({ done: {}, cards: {}, log: {}, xp: {}, scores: {}, badges: {}, frz: {}, freezes: 0, frzAt: '', best: 0, free: false, tr: true, goal: 100, sound: true, theme: 'auto', at: 0 });
-const OBJS = ['done', 'cards', 'log', 'xp', 'scores', 'badges', 'frz'];
+const fresh = () => ({ done: {}, cards: {}, log: {}, xp: {}, scores: {}, lv: {}, badges: {}, frz: {}, freezes: 0, frzAt: '', best: 0, free: false, tr: true, goal: 100, sound: true, theme: 'auto', at: 0 });
+const OBJS = ['done', 'cards', 'log', 'xp', 'scores', 'lv', 'badges', 'frz'];
 const norm = o => { const s = { ...fresh(), ...(o && typeof o === 'object' ? o : {}) }; OBJS.forEach(k => { if (!s[k] || typeof s[k] !== 'object' || Array.isArray(s[k])) s[k] = {}; }); return s; };
 const load = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
 let S = norm(load(KEY));
@@ -28,8 +27,40 @@ function merge(a, b) {
   a = norm(a); b = norm(b);
   const nw = (b.at || 0) >= (a.at || 0) ? b : a, cards = { ...a.cards };
   for (const k in b.cards) { const x = cards[k], y = b.cards[k]; if (!y || typeof y !== 'object') continue; cards[k] = !x || y.b > x.b || (y.b === x.b && String(y.due) > String(x.due)) ? y : x; }
-  return norm({ ...nw, done: minD(a.done, b.done), cards, log: maxO(a.log, b.log), xp: maxO(a.xp, b.xp), scores: maxO(a.scores, b.scores),
+  return norm({ ...nw, done: minD(a.done, b.done), cards, log: maxO(a.log, b.log), xp: maxO(a.xp, b.xp), scores: maxO(a.scores, b.scores), lv: maxO(a.lv, b.lv),
     badges: minD(a.badges, b.badges), frz: { ...a.frz, ...b.frz }, best: Math.max(a.best || 0, b.best || 0), at: Math.max(a.at || 0, b.at || 0) });
+}
+
+/* ---------- PROGRAMI: NIVELET DHE NJËSITË ----------
+   Vjen nga serveri (/api/curriculum, i rregulluar nga administratori) ose, nëse s'ka, nga assets/data.js. */
+const arrs = (x, m) => Array.isArray(x) ? x.filter(Boolean) : [];
+const fixD = d => ({ t: (d && d.t) || '', l: arrs(d && d.l), q: arrs(d && d.q).filter(q => q.p && Array.isArray(q.o) && q.o.length > 1) });
+const fixU = u => ({ ...u, n: +u.n, ar: u.ar || '', sq: u.sq || 'Njësi', A: arrs(u.A), B: arrs(u.B), D1: fixD(u.D1), D2: fixD(u.D2),
+  G: { t: (u.G && u.G.t) || '', h: (u.G && u.G.h) || '', ex: fixD({ q: u.G && u.G.ex }).q }, build: arrs(u.build).filter(b => Array.isArray(b[1]) && b[1].length), say: arrs(u.say) });
+function defaultCur() {
+  const by = {}; (window.UNITS || []).forEach(u => { by[u.n] = u; });
+  const ls = window.LEVELS || [{ id: 'L1', t: 'Niveli 1', units: (window.UNITS || []).map(u => u.n) }];
+  return { v: 0, levels: ls.map(l => ({ id: l.id, t: l.t, d: l.d || '', pass: l.pass || PASS, units: (l.units || []).map(n => by[n]).filter(Boolean) })) };
+}
+function fixCur(c) {
+  try {
+    if (!c || !Array.isArray(c.levels) || !c.levels.length) return null;
+    return { v: +c.v || 0, by: c.by || '', levels: c.levels.map((l, i) => ({ id: String(l.id || 'L' + (i + 1)), t: l.t || 'Nivel', d: l.d || '', pass: +l.pass || PASS, units: arrs(l.units).map(fixU) })) };
+  } catch (e) { return null; }
+}
+let CUR, LV, U, UL, LVI, DAYS, ALLW, PENDING = null;
+function useCur(c) {
+  CUR = fixCur(c) || defaultCur();
+  LV = CUR.levels; U = []; UL = []; LVI = LV.map(() => []);
+  LV.forEach((l, li) => l.units.forEach(u => { LVI[li].push(U.length); UL.push(li); U.push(u); }));
+  DAYS = []; U.forEach((u, ui) => DN.forEach((n, di) => DAYS.push({ ui, di, id: 'u' + u.n + 'd' + (di + 1) })));
+  ALLW = U.flatMap((u, ui) => u.A.concat(u.B).map(w => ({ ar: w[0], sq: w[1], tr: w[2], n: u.n, no: ui + 1 })));
+}
+useCur(load(CKEY));
+function setCur(c) {
+  if (document.body.classList.contains('inlesson')) { PENDING = { c }; return; }
+  useCur(c);
+  try { c ? localStorage.setItem(CKEY, JSON.stringify(c)) : localStorage.removeItem(CKEY); } catch (e) {}
 }
 
 /* ---------- DATAT ---------- */
@@ -76,7 +107,9 @@ const BADGES = [
   ['s100', 'Njëqind ditë', '100 ditë radhazi', 'crown', () => S.best >= 100],
   ['goal', 'Qëllimi i ditës', 'Arrite qëllimin ditor', 'target', () => Object.values(S.xp).some(v => v >= S.goal)],
   ['u1', 'Njësia e parë', 'Kalove testin e javës 1', 'trophy', () => !!S.scores.u1],
-  ['perfect', 'Pa asnjë gabim', '100% në një test', 'gem', () => Object.values(S.scores).some(v => v >= 100)],
+  ['lv1', 'Niveli i parë', 'Kalove testin e një niveli', 'trophy', () => Object.keys(S.lv).length >= 1],
+  ['lv2', 'Dy nivele', 'Kalove testet e dy niveleve', 'crown', () => Object.keys(S.lv).length >= 2],
+  ['perfect', 'Pa asnjë gabim', '100% në një test', 'gem', () => Object.values(S.scores).concat(Object.values(S.lv)).some(v => v >= 100)],
   ['w50', '50 fjalë', '50 fjalë në kujtesë', 'book', () => Object.keys(S.cards).length >= 50],
   ['w150', '150 fjalë', '150 fjalë në kujtesë', 'book', () => Object.keys(S.cards).length >= 150],
   ['xp1k', '1000 XP', 'Mblodhe 1000 XP', 'bolt', () => xpTotal() >= 1000],
@@ -88,11 +121,36 @@ function checkBadges() { const nb = []; BADGES.forEach(b => { if (!S.badges[b[0]
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const pick = a => a[Math.floor(Math.random() * a.length)];
-const DAYS = []; U.forEach((u, ui) => DN.forEach((n, di) => DAYS.push({ ui, di, id: 'u' + u.n + 'd' + (di + 1) })));
-const unlocked = i => { if (i === 0) return true; const p = S.done[DAYS[i - 1].id]; return !!p && (S.free || p < today()); };
-const curIdx = () => DAYS.findIndex(d => !S.done[d.id]);
+/* nivelet: hapet niveli i parë; tjetri hapet kur kalon testin e nivelit para tij.
+   Kush di më shumë mund ta bëjë testin e nivelit direkt dhe të kalojë te tjetri. */
+const lvPassed = li => !!(LV[li] && S.lv[LV[li].id]);
+const lvDays = li => LVI[li].flatMap(ui => DN.map((_, di) => ui * 7 + di));
+const lvStarted = li => lvDays(li).some(i => S.done[DAYS[i].id]);
+const lvOpen = li => li === 0 || lvPassed(li - 1) || lvPassed(li) || lvStarted(li);
+const lvAllDone = li => { const ds = lvDays(li); return ds.length > 0 && ds.every(i => S.done[DAYS[i].id]); };
+const lvLast = li => lvDays(li).map(i => S.done[DAYS[i].id] || '').sort().pop() || '';
+const lvReady = li => lvOpen(li) && lvAllDone(li) && (S.free || lvPassed(li) || lvLast(li) < today());
+const lvPass = li => LV[li].pass || PASS;
+const lvName = li => 'Niveli ' + (li + 1);
+function unlocked(i) {
+  const d = DAYS[i]; if (!d) return false;
+  const li = UL[d.ui];
+  if (!lvOpen(li)) return false;
+  if (lvPassed(li) || i === LVI[li][0] * 7) return true;
+  const p = S.done[DAYS[i - 1].id]; return !!p && (S.free || p < today());
+}
+/* çfarë vjen tani: {k:'day',i} | {k:'lv',li} (testi i nivelit) | {k:'soon',li} (niveli pa përmbajtje) | null (gjithçka u krye) */
+function nextUp() {
+  for (let li = 0; li < LV.length; li++) {
+    if (lvPassed(li)) continue;
+    if (!LVI[li].length) return { k: 'soon', li };
+    const i = lvDays(li).find(i => !S.done[DAYS[i].id]);
+    return i !== undefined ? { k: 'day', i, li } : { k: 'lv', li };
+  }
+  return null;
+}
+const curIdx = () => { const n = nextUp(); return n && n.k === 'day' ? n.i : -1; };
 const due = () => Object.entries(S.cards).filter(([, c]) => c.due <= today());
-const ALLW = U.flatMap(u => u.A.concat(u.B).map(w => ({ ar: w[0], sq: w[1], tr: w[2], u: u.n })));
 const app = document.getElementById('app'), top = document.getElementById('top');
 let toastT;
 const toast = (m, kind) => { let t = document.querySelector('.toast'); if (!t) { t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); } t.className = 'toast ' + (kind || ''); t.innerHTML = m; clearTimeout(toastT); toastT = setTimeout(() => t.classList.add('out'), 3000); setTimeout(() => { if (t.classList.contains('out')) t.remove(); }, 3400); };
@@ -122,6 +180,16 @@ const I = {
   repeat: '<path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>',
   play: '<path d="M7 4.5v15l12-7.5z"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  up: '<path d="M12 19V5M6 11l6-6 6 6"/>',
+  down: '<path d="M12 5v14M6 13l6 6 6-6"/>',
+  trash: '<path d="M4 7h16M10 11v6M14 11v6M9 7V4h6v3M6 7l1 13h10l1-13"/>',
+  edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>',
+  layers: '<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/>',
+  skip: '<path d="m5 5 8 7-8 7zM15 5v14"/>',
+  dl: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
+  ul: '<path d="M12 15V4M7 9l5-5 5 5M5 20h14"/>',
 };
 const FILLED = { flame: 1, bolt: 1, play: 1, star: 1, crown: 1 };
 const ic = (n, c) => `<svg class="ic${FILLED[n] ? ' f' : ''}${c ? ' ' + c : ''}" viewBox="0 0 24 24" aria-hidden="true">${I[n]}</svg>`;
@@ -178,10 +246,22 @@ async function pull() {
   try {
     const j = await api('progress');
     if (j.data) { S = merge(S, j.data); persist(); applyTheme(); }
+    if (ME() && !!j.admin !== !!ME().a) { setAuth({ ...ME(), a: !!j.admin }); if (tab === 'admin' && !j.admin) tab = 'home'; }
     lastSync = Date.now(); syncState = 'ok'; dirty = true; push();
     if (!document.body.classList.contains('inlesson') && !document.body.classList.contains('bare')) refresh();
   } catch (e) { syncState = 'off'; if (e.status === 401) expired(); }
   paintSync();
+}
+/* programi nga serveri; nëse s'ka lidhje mbetet ai i ruajturi në pajisje */
+let curAt = 0;
+async function fetchCur() {
+  try {
+    const j = await api('curriculum'); curAt = Date.now();
+    const v = j.cur ? +j.cur.v || 0 : 0;
+    if (v === CUR.v && !PENDING) return;
+    setCur(j.cur);
+    if (!document.body.classList.contains('inlesson') && !document.body.classList.contains('bare') && !(tab === 'admin' && AE)) refresh();
+  } catch (e) {}
 }
 function expired() { const u = ME() && ME().u; setAuth(null); toast('Seanca skadoi. Hyr sërish që të sinkronizohet progresi.'); if (!document.body.classList.contains('inlesson')) authView('login', u); }
 addEventListener('online', () => push());
@@ -189,6 +269,7 @@ document.addEventListener('visibilitychange', () => {
   if (!ME()) return;
   if (document.visibilityState === 'hidden' && dirty) { clearTimeout(pushT); dirty = false; api('progress', { method: 'PUT', keepalive: true, body: { data: S } }).catch(() => { dirty = true; }); }
   if (document.visibilityState === 'visible' && Date.now() - lastSync > 60000) pull();
+  if (document.visibilityState === 'visible' && Date.now() - curAt > 60000) fetchCur();
 });
 const ago = t => { const s = Math.round((Date.now() - t) / 1000); return s < 10 ? 'tani' : s < 60 ? 'para ' + s + ' sekondash' : s < 3600 ? 'para ' + Math.round(s / 60) + ' min' : 'para ' + Math.round(s / 3600) + ' orësh'; };
 function paintSync() {
@@ -262,12 +343,23 @@ function steps(i) {
     case 6: return [{ k: 'quiz', test: true, q: shuffle(vq(all, all, 10).concat(shuffle(u.G.ex).slice(0, 4).map(mk), old, bq(u, all).slice(0, 2))) }];
   }
 }
+/* testi i nivelit: fjalor, gramatikë dhe fjali nga të gjitha njësitë e nivelit */
+function lvQuestions(li) {
+  const us = LVI[li].map(ui => U[ui]), all = us.flatMap(u => u.A.concat(u.B));
+  const per = Math.max(1, Math.ceil(8 / us.length));
+  const g = shuffle(us.flatMap(u => shuffle(u.G.ex).slice(0, per))).slice(0, 8).map(mk);
+  const b = shuffle(us.flatMap(u => shuffle(bq(u, all)).slice(0, 1))).slice(0, 4);
+  const d = shuffle(us.flatMap(u => u.D1.q.concat(u.D2.q))).slice(0, 3).map(mk);
+  return shuffle(vq(shuffle(all).slice(0, 15), all).concat(g, d, b));
+}
 
 /* ---------- KOKA DHE NAVIGIMI ---------- */
-const TABS = [['home', 'Mësimi', 'home'], ['dict', 'Fjalori', 'book'], ['stats', 'Progresi', 'chart'], ['me', 'Profili', 'user']];
+const TABS0 = [['home', 'Mësimi', 'home'], ['dict', 'Fjalori', 'book'], ['stats', 'Progresi', 'chart'], ['me', 'Profili', 'user']];
+const isAdm = () => !!(ME() && ME().a);
+const TABSF = () => isAdm() ? TABS0.concat([['admin', 'Admin', 'gear']]) : TABS0;
 let tab = 'home';
 function chrome() {
-  const si = streakInfo();
+  const si = streakInfo(), TABS = TABSF();
   top.innerHTML = `<div class="in">
   <button class="brand" data-tab="home" aria-label="Mëso Arabisht, faqja kryesore"><span class="logo">ع</span><span class="bt">Mëso Arabisht</span></button>
   <nav class="tabs" aria-label="Navigimi kryesor">${TABS.map(([k, l, i]) => `<button class="tab" data-tab="${k}"${tab === k ? ' aria-current="page"' : ''}>${ic(i)}<span>${l}</span></button>`).join('')}</nav>
@@ -276,13 +368,14 @@ function chrome() {
    <button class="chip bolt" data-tab="stats" aria-label="XP sot: ${xpToday()}">${ic('bolt')}<b>${xpToday()}</b></button>
   </div></div>`;
 }
-const VIEWS = { home, dict, stats, me };
+const VIEWS = { home, dict, stats, me, admin };
 function setTab(t) {
-  if (!VIEWS[t]) t = 'home';
+  if (!VIEWS[t] || (t === 'admin' && !isAdm())) t = 'home';
   hush(); L = Q = R = null;
   if (!ME() && !AUTH.guest) return authView();
   tab = t;
   document.body.classList.remove('inlesson', 'bare');
+  if (PENDING) { const p = PENDING; PENDING = null; setCur(p.c); }
   try { history.replaceState(null, '', t === 'home' ? location.pathname : '#' + t); } catch (e) {}
   const go = () => { VIEWS[t](); chrome(); anim(); scrollTo(0, 0); };
   if (document.startViewTransition && !reduce && app.dataset.view) document.startViewTransition(go); else go();
@@ -321,7 +414,7 @@ async function doAuth(f) {
   err.textContent = ''; b.disabled = true; b.classList.add('busy');
   try {
     const j = await api('auth', { method: 'POST', body: { action: mode, username: u, password: p } });
-    setAuth({ u: j.username, t: j.token });
+    setAuth({ u: j.username, t: j.token, a: !!j.admin });
     if (j.data) S = merge(S, j.data);
     persist(); applyTheme(); dirty = true; push();
     sfx('win'); buzz(20);
@@ -352,35 +445,67 @@ function streakMsg(si) {
   if (si.lost) return `Seria prej ${si.lost} ditësh u ndal. Asgjë s'ka humbur nga dija, fillo një të re sot!`;
   return 'Bëje mësimin e parë dhe ndeze flakën e parë.';
 }
+const lvGen = li => 'Nivelit ' + (li + 1);
+function unitCard(ui, ci) {
+  const u = U[ui], n = DN.filter((_, di) => S.done[DAYS[ui * 7 + di].id]).length, sc = S.scores['u' + u.n];
+  return `<article class="unit${n === 7 ? ' fin' : ''}"><div class="uh"><div><div class="ul">Njësia ${ui + 1}${sc ? ` · <span class="pill ok">${ic('trophy')} ${sc}%</span>` : ''}</div><h2>${esc(u.sq)}</h2></div><span class="ar">${esc(u.ar)}</span></div>
+     <div class="ubar"><b style="width:${Math.round(n / 7 * 100)}%"></b></div>
+     <div class="path">${DN.map((nm, di) => { const i = ui * 7 + di, d = DAYS[i], done = !!S.done[d.id], ok = unlocked(i), cur = i === ci && ok;
+       return `<button class="node${done ? ' done' : ''}${cur ? ' cur' : ''}${di === 6 ? ' test' : ''}" data-go="${i}"${ok ? '' : ' disabled'} aria-label="Dita ${di + 1}: ${esc(nm)}${done ? ' (e kryer)' : ok ? '' : ' (e mbyllur)'}">${cur ? '<em>SOT</em>' : ''}<i>${done ? ic('check') : !ok ? ic('lock') : di === 6 ? ic('trophy') : di + 1}</i><small>${esc(nm)}</small></button>`; }).join('')}</div></article>`;
+}
+function skipBox(li) {
+  const nothing = !Object.keys(S.done).length && !Object.keys(S.lv).length, last = li >= LV.length - 1;
+  return `<div class="skip">${ic('skip')}<div><b>${nothing ? 'E di tashmë pak arabisht?' : `E di tashmë ${lvName(li)}?`}</b><span>Bëj testin e ${lvGen(li)} (duhen ${lvPass(li)}%) dhe ${last ? 'përfundoje programin' : `fillo direkt nga ${lvName(li + 1)}`}.</span></div><button class="btn sec sm" data-lvt="${li}">Kalo me test</button></div>`;
+}
+function levelSec(li, nx, ci) {
+  const l = LV[li], open = lvOpen(li), passed = lvPassed(li), ds = lvDays(li), dn = ds.filter(i => S.done[DAYS[i].id]).length, has = LVI[li].length > 0, ready = lvReady(li);
+  const cur = !!nx && nx.li === li;
+  const st = passed ? `<span class="pill ok">${ic('trophy')} I kaluar · ${S.lv[l.id]}%</span>` : !has ? `<span class="pill">Së shpejti</span>` : open ? `<span class="pill gold">${ic('play')} Në vazhdim</span>` : `<span class="pill">${ic('lock')} I mbyllur</span>`;
+  const nextName = li < LV.length - 1 ? lvName(li + 1) : 'fundi i programit';
+  let body;
+  if (!has) body = `<div class="empty sm">Njësitë e këtij niveli po përgatiten.</div>`;
+  else if (!open) body = `<p class="lvlock">${ic('lock')} Hapet kur kalon testin e ${lvGen(li - 1)}.</p><div class="lvu">${LVI[li].map(ui => `<span><b>${ui + 1}.</b> ${esc(U[ui].sq)}</span>`).join('')}</div>`;
+  else body = LVI[li].map(ui => unitCard(ui, ci)).join('') +
+    `<div class="lvtest${passed ? ' done' : ''}${ready && !passed ? ' ready' : ''}"><button class="node test${passed ? ' done' : ''}${cur && nx.k === 'lv' && ready ? ' cur' : ''}" data-lvt="${li}"${ready || passed ? '' : ' disabled'} aria-label="Testi i ${lvGen(li)}"><i>${passed ? ic('check') : ready ? ic('trophy') : ic('lock')}</i></button>
+      <div class="lvtt"><b>Testi i ${lvGen(li)}</b><span>${passed ? `Kaluar me ${S.lv[l.id]}%. Mund ta bësh sërish për ushtrim.` : ready ? `Gati! Duhen ${lvPass(li)}% për të kaluar te ${nextName}.` : `Hapet pasi t'i kryesh të gjitha njësitë e nivelit. Duhen ${lvPass(li)}%.`}</span></div>
+      ${!passed && !ready ? `<button class="btn sec sm" data-lvt="${li}">${ic('skip')} Kalo me test</button>` : ''}</div>`;
+  return `<section class="lev${passed ? ' pass' : ''}${open ? '' : ' lock'}${cur ? ' cur' : ''}"><header class="lvh"><div class="lvb">${passed ? ic('check') : open && has ? li + 1 : ic(has ? 'lock' : 'clock')}</div><div class="lvt"><div class="ul">${lvName(li)} ${st}</div><h2>${esc(l.t)}</h2>${l.d ? `<p class="mut">${esc(l.d)}</p>` : ''}</div></header>
+   ${ds.length && open ? `<div class="ubar"><b style="width:${Math.round(dn / ds.length * 100)}%"></b></div>` : ''}${body}</section>`;
+}
 function home() {
-  const ci = curIdx(), cd = ci >= 0 ? DAYS[ci] : null, open = ci >= 0 && unlocked(ci), nd = due().length, si = streakInfo(), xt = xpToday(), g = S.goal, doneN = Object.keys(S.done).length;
+  const nx = nextUp(), ci = curIdx(), nd = due().length, si = streakInfo(), xt = xpToday(), g = S.goal, doneN = Object.keys(S.done).length;
   const name = ME() ? ME().u : '';
-  let th;
   const rev = nd ? `<button class="btn sec" data-rev>${ic('repeat')} Përsërit ${nd} fjalë</button>` : '';
-  if (!cd) th = `<div class="k">Mashallah!</div><div class="t">I përfundove të gjitha njësitë që janë gati.</div><p class="mut">Vazhdo me përsëritjen e përditshme derisa të shtohen njësitë e reja.</p>${nd ? `<div class="row">${rev.replace('btn sec', 'btn big')}</div>` : ''}`;
-  else if (open) th = `<div class="k">Mësimi i sotëm · Njësia ${U[cd.ui].n}, dita ${cd.di + 1} nga 7</div><div class="t">${esc(DN[cd.di])}</div><div class="row"><button class="btn big" data-go="${ci}">${ic('play')} Fillo mësimin</button>${rev}</div>`;
-  else th = `<div class="k">${ic('check')} Mësimi i sotëm u krye</div><div class="t">Dita e radhës (${esc(DN[cd.di])}) hapet nesër.</div><p class="mut">Pushimi mes mësimeve e ndihmon kujtesën.${nd ? ' Ndërkohë ke fjalë për përsëritje.' : ''}</p>${nd ? `<div class="row">${rev.replace('btn sec', 'btn big')}</div>` : ''}`;
+  const revBig = nd ? `<div class="row">${rev.replace('btn sec', 'btn big')}</div>` : '';
+  let th, skip = '';
+  if (!nx) th = `<div class="k">Mashallah!</div><div class="t">I kalove të gjitha nivelet që janë gati.</div><p class="mut">Vazhdo me përsëritjen e përditshme derisa të shtohen njësitë e reja.</p>${revBig}`;
+  else if (nx.k === 'soon') th = `<div class="k">${ic('layers')} ${lvName(nx.li)} · ${esc(LV[nx.li].t)}</div><div class="t">Niveli i ri po përgatitet.</div><p class="mut">${nx.li ? `E kalove ${lvName(nx.li - 1)}. ` : ''}Njësitë e reja shtohen së shpejti; ndërkohë vazhdo me përsëritjen.</p>${revBig}`;
+  else if (nx.k === 'lv') {
+    const li = nx.li;
+    if (lvReady(li)) th = `<div class="k">${ic('trophy')} ${lvName(li)} · testi përfundimtar</div><div class="t">Testi i ${lvGen(li)}</div><p class="mut">Duhen ${lvPass(li)}% për të kaluar ${li < LV.length - 1 ? 'te ' + lvName(li + 1) : 'nivelin'}.</p><div class="row"><button class="btn big" data-lvt="${li}">${ic('play')} Fillo testin</button>${rev}</div>`;
+    else { th = `<div class="k">${ic('check')} Mësimi i sotëm u krye</div><div class="t">Testi i ${lvGen(li)} hapet nesër.</div><p class="mut">Pushimi mes mësimeve e ndihmon kujtesën.${nd ? ' Ndërkohë ke fjalë për përsëritje.' : ''}</p>${revBig}`; skip = skipBox(li); }
+  } else {
+    const cd = DAYS[nx.i];
+    th = unlocked(nx.i) ? `<div class="k">Mësimi i sotëm · ${lvName(nx.li)} · Njësia ${cd.ui + 1}, dita ${cd.di + 1} nga 7</div><div class="t">${esc(DN[cd.di])}</div><div class="row"><button class="btn big" data-go="${nx.i}">${ic('play')} Fillo mësimin</button>${rev}</div>`
+      : `<div class="k">${ic('check')} Mësimi i sotëm u krye</div><div class="t">Dita e radhës (${esc(DN[cd.di])}) hapet nesër.</div><p class="mut">Pushimi mes mësimeve e ndihmon kujtesën.${nd ? ' Ndërkohë ke fjalë për përsëritje.' : ''}</p>${revBig}`;
+    skip = skipBox(nx.li);
+  }
   const nudge = !ME() && doneN ? `<div class="nudge">${ic('cloud')}<div><b>Mos e humb progresin</b><span>Krijo llogari me emër dhe fjalëkalim. Progresi ruhet dhe e ke në çdo pajisje.</span></div><button class="btn sm" data-auth="signup">Krijo llogari</button></div>` : '';
   app.innerHTML = `<section class="hero"><div class="wrap">
    <p class="hello">${hello()}${name ? `, <b>${esc(name)}</b>` : ''}</p>
    <div class="duo">
-    <div class="panel streakp${si.done ? ' lit' : ''}"><div class="ph"><span class="fl">${ic('flame')}</span><div><b>${si.n}</b><span>${si.n === 1 ? 'ditë radhazi' : 'ditë radhazi'}</span></div>${S.freezes ? `<span class="frz" title="Ngrirje: e mbron serinë kur mungon një ditë">${ic('snow')}${S.freezes}</span>` : ''}</div>${week()}<p class="pm">${streakMsg(si)}</p></div>
+    <div class="panel streakp${si.done ? ' lit' : ''}"><div class="ph"><span class="fl">${ic('flame')}</span><div><b>${si.n}</b><span>ditë radhazi</span></div>${S.freezes ? `<span class="frz" title="Ngrirje: e mbron serinë kur mungon një ditë">${ic('snow')}${S.freezes}</span>` : ''}</div>${week()}<p class="pm">${streakMsg(si)}</p></div>
     <div class="panel goalp${xt >= g ? ' full' : ''}"><div class="rw">${ring(xt, g)}<div class="rc">${xt >= g ? ic('check') : ic('bolt')}</div></div><div><b>${xt}<small>/${g} XP</small></b><span>${xt >= g ? 'Qëllimi u arrit sot!' : 'Qëllimi i ditës'}</span></div></div>
    </div>
-   <div class="today">${th}</div>
+   <div class="today">${th}${skip}</div>
   </div></section>
   ${nudge ? `<section class="band tight"><div class="wrap">${nudge}</div></section>` : ''}
   <section class="band"><div class="wrap">
-   ${U.map((u, ui) => { const n = DN.filter((_, di) => S.done[DAYS[ui * 7 + di].id]).length, sc = S.scores['u' + u.n];
-     return `<article class="unit${n === 7 ? ' fin' : ''}"><div class="uh"><div><div class="ul">Njësia ${u.n}${sc ? ` · <span class="pill ok">${ic('trophy')} ${sc}%</span>` : ''}</div><h2>${esc(u.sq)}</h2></div><span class="ar">${esc(u.ar)}</span></div>
-     <div class="ubar"><b style="width:${Math.round(n / 7 * 100)}%"></b></div>
-     <div class="path">${DN.map((nm, di) => { const i = ui * 7 + di, d = DAYS[i], done = !!S.done[d.id], ok = unlocked(i), cur = i === ci && ok;
-       return `<button class="node${done ? ' done' : ''}${cur ? ' cur' : ''}${di === 6 ? ' test' : ''}" data-go="${i}"${ok ? '' : ' disabled'} aria-label="Dita ${di + 1}: ${esc(nm)}${done ? ' (e kryer)' : ok ? '' : ' (e mbyllur)'}">${cur ? '<em>SOT</em>' : ''}<i>${done ? ic('check') : !ok ? ic('lock') : di === 6 ? ic('trophy') : di + 1}</i><small>${esc(nm)}</small></button>`; }).join('')}</div></article>`; }).join('')}
-   <h3>Njësitë që vijnë</h3><div class="soon">${SOON.map((s, i) => `<div><span class="ar">${esc(s[0])}</span>${U.length + i + 1}. ${esc(s[1])}</div>`).join('')}</div>
+   ${LV.map((_, li) => levelSec(li, nx, ci)).join('')}
    <details class="how"><summary>Pse funksionon kjo mënyrë?</summary><div class="howg">
+    <div><b>Nivele me test.</b> Çdo nivel mbyllet me një test. Kur e kalon, hapet niveli tjetër. Nëse di më shumë, bëje testin direkt dhe kalo përpara.</div>
     <div><b>Nxjerrja nga kujtesa.</b> Nuk e lexon vetëm mësimin: përgjigjesh, ndërton fjali dhe flet. Kështu fjalët ngulen më mirë se me rilexim.</div>
     <div><b>Përsëritje me intervale.</b> Fjalët kthehen pas 1, 2, 4, 7, 15, 30 e 60 ditësh, pikërisht kur fillon t'i harrosh.</div>
-    <div><b>Përzierje.</b> Dita 5 dhe testi e përziejnë fjalorin, gramatikën dhe fjalët e njësive të kaluara.</div>
     <div><b>Pak, por çdo ditë.</b> Një mësim në ditë dhe seria e ditëve. Gabimet kthehen në fund derisa t'i bësh saktë.</div>
    </div></details>
    <p class="fine">Dialogët dhe ushtrimet janë shkruar posaçërisht për këtë platformë sipas temave të librit 1 të «العربية بين يديك». Nuk janë kopje e tekstit të librit.</p>
@@ -393,18 +518,18 @@ function dict() {
   const learned = Object.keys(S.cards).length;
   app.innerHTML = `<section class="band"><div class="wrap"><h1>Fjalori</h1><p class="lead">Të gjitha fjalët e platformës. Prek një fjalë për ta dëgjuar. Pikat tregojnë sa mirë e di.</p>
    <input class="search" id="dq" type="search" placeholder="Kërko shqip ose arabisht…" value="${esc(dq)}" autocomplete="off">
-   <div class="seg">${[['learned', `Të mësuarat (${learned})`], ['all', `Të gjitha (${ALLW.length})`], ...U.map(u => ['u' + u.n, 'Njësia ' + u.n])].map(([k, l]) => `<button data-dm="${k}" aria-pressed="${dmode === k}">${l}</button>`).join('')}</div>
+   <div class="seg">${[['learned', `Të mësuarat (${learned})`], ['all', `Të gjitha (${ALLW.length})`], ...U.map((u, ui) => ['u' + u.n, 'Njësia ' + (ui + 1)])].map(([k, l]) => `<button data-dm="${k}" aria-pressed="${dmode === k}">${l}</button>`).join('')}</div>
    <div class="words" id="wl"></div></div></section>`;
   renderWords();
 }
 const strip = s => s.replace(/[ً-ْٰـ]/g, '').toLowerCase();
 function renderWords() {
   const q = strip(dq.trim());
-  let ws = ALLW.filter(w => dmode === 'all' || (dmode === 'learned' ? S.cards[w.ar] : 'u' + w.u === dmode));
+  let ws = ALLW.filter(w => dmode === 'all' || (dmode === 'learned' ? S.cards[w.ar] : 'u' + w.n === dmode));
   if (q) ws = ws.filter(w => strip(w.ar).includes(q) || w.sq.toLowerCase().includes(q) || (w.tr || '').toLowerCase().includes(q));
   const seen = new Set(); ws = ws.filter(w => !seen.has(w.ar) && seen.add(w.ar));
   const el = document.getElementById('wl');
-  el.innerHTML = ws.length ? ws.map(w => { const c = S.cards[w.ar], lv = c ? c.b + 1 : 0; return `<button class="word" data-say="${esc(w.ar)}"><span><span class="m">${esc(w.sq)}</span><span class="u">Njësia ${w.u}${S.tr ? ' · ' + esc(w.tr) : ''}</span></span><span class="lvl" aria-label="Niveli ${lv} nga 7">${INT.map((x, i) => `<i class="${i < lv ? 'on' : ''}"></i>`).join('')}</span><span class="ar">${esc(w.ar)}</span></button>`; }).join('')
+  el.innerHTML = ws.length ? ws.map(w => { const c = S.cards[w.ar], lv = c ? c.b + 1 : 0; return `<button class="word" data-say="${esc(w.ar)}"><span><span class="m">${esc(w.sq)}</span><span class="u">Njësia ${w.no}${S.tr ? ' · ' + esc(w.tr) : ''}</span></span><span class="lvl" aria-label="Niveli ${lv} nga 7">${INT.map((x, i) => `<i class="${i < lv ? 'on' : ''}"></i>`).join('')}</span><span class="ar">${esc(w.ar)}</span></button>`; }).join('')
     : `<div class="empty">${dmode === 'learned' && !q ? 'Ende s\'ke fjalë të mësuara. Fillo mësimin e parë dhe fjalët do të shfaqen këtu.' : 'Asnjë fjalë nuk përputhet me kërkimin.'}</div>`;
 }
 
@@ -428,6 +553,7 @@ function stats() {
    </div>
    <h3>Medaljet <span class="mut">${Object.keys(S.badges).length}/${BADGES.length}</span></h3>
    <div class="badges">${BADGES.map(b => { const got = S.badges[b[0]]; return `<div class="bd${got ? ' got' : ''}" title="${esc(b[2])}"><i>${ic(got ? b[3] : 'lock')}</i><b>${esc(b[1])}</b><span>${esc(b[2])}</span></div>`; }).join('')}</div>
+   <h3>Nivelet</h3><div class="bars">${LV.map((l, li) => { const ds = lvDays(li), n = ds.filter(i => S.done[DAYS[i].id]).length, p = lvPassed(li); return `<div class="bar"><span>${lvName(li)}</span><span class="t"><b style="width:${p ? 100 : ds.length ? Math.round(n / ds.length * 100) : 0}%"></b></span><span class="v">${p ? S.lv[l.id] + '%' : !ds.length ? '–' : lvOpen(li) ? Math.round(n / ds.length * 100) + '%' : ic('lock')}</span></div>`; }).join('')}</div>
    <h3>Njësitë</h3><div class="bars">${U.map(u => { const n = DN.filter((_, i) => S.done['u' + u.n + 'd' + (i + 1)]).length, sc = S.scores['u' + u.n]; return `<div class="bar"><span>${esc(u.sq)}</span><span class="t"><b style="width:${Math.round(n / 7 * 100)}%"></b></span><span class="v">${sc ? sc + '%' : n + '/7'}</span></div>`; }).join('')}</div>
   </div></section>`;
   countUp();
@@ -464,23 +590,189 @@ function me() {
   paintSync();
 }
 
+/* ---------- HTML I SIGURT PËR GRAMATIKËN (vetëm etiketa të thjeshta) ---------- */
+const OKTAGS = new Set(['B', 'I', 'U', 'STRONG', 'EM', 'P', 'BR', 'DIV', 'SPAN', 'TABLE', 'THEAD', 'TBODY', 'TR', 'TD', 'TH', 'UL', 'OL', 'LI', 'H3', 'H4', 'SMALL', 'SUP', 'SUB', 'HR', 'MARK']);
+const OKATTR = new Set(['class', 'colspan', 'rowspan', 'dir']);
+function safeHTML(h) {
+  try {
+    const doc = new DOMParser().parseFromString('<div>' + String(h || '') + '</div>', 'text/html'), root = doc.body.firstElementChild;
+    const walk = el => [...el.children].forEach(c => {
+      if (!OKTAGS.has(c.tagName)) { c.replaceWith(doc.createTextNode(c.textContent)); return; }
+      [...c.attributes].forEach(a => { if (!OKATTR.has(a.name)) c.removeAttribute(a.name); });
+      walk(c);
+    });
+    walk(root); return root.innerHTML;
+  } catch (e) { return esc(h); }
+}
+
+/* ---------- PANELI I ADMINISTRATORIT ---------- */
+let AE = null; // njësia që po ndryshohet: {li, k} (k = -1 për njësi të re)
+const clone = x => JSON.parse(JSON.stringify(x));
+const AR = /[؀-ۿ]/;
+const rows = s => String(s || '').split('\n').map(l => l.split('|').map(x => x.trim())).filter(r => r.some(Boolean));
+const ser = {
+  words: ws => ws.map(w => [w[0], w[1], w[2]].filter((x, i) => i < 2 || x).join(' | ')).join('\n'),
+  lines: ls => ls.map(l => [l[0], l[1], l[2]].join(' | ')).join('\n'),
+  qs: qs => qs.map(q => [q.p].concat(q.o).join(' | ')).join('\n'),
+  build: bs => bs.map(b => b[0] + ' | ' + b[1].join(' ')).join('\n'),
+  say: ss => ss.map(s => s[0] + ' | ' + s[1]).join('\n'),
+};
+function parseUnit(f) {
+  const errs = [], v = n => (f.elements[n] ? f.elements[n].value : '');
+  const chk = (name, list, need, fn) => list.map((r, i) => { const x = fn(r); if (!x) errs.push(`${name}, rreshti ${i + 1}: ${need}`); return x; }).filter(Boolean);
+  const words = (name, s) => chk(name, rows(s), 'duhet “arabisht | shqip | transliterim”', r => r[0] && r[1] ? [r[0], r[1], r[2] || ''] : null);
+  const lines = (name, s) => chk(name, rows(s), 'duhet “Folësi | arabisht | shqip”', r => r[1] ? [r[0] || '', r[1], r[2] || ''] : null);
+  const qs = (name, s) => chk(name, rows(s), 'duhet “pyetja | e sakta | gabim | gabim”', r => { const o = r.slice(1).filter(Boolean); if (!r[0] || o.length < 2) return null; const q = { p: r[0], o }; if (o.every(x => AR.test(x))) q.ar = 1; return q; });
+  const u = {
+    sq: v('sq').trim(), ar: v('ar').trim(),
+    A: words('Fjalori i ditës 1', v('A')), B: words('Fjalori i ditës 4', v('B')),
+    D1: { t: v('D1t').trim(), l: lines('Dialogu 1', v('D1l')), q: qs('Pyetjet e dialogut 1', v('D1q')) },
+    D2: { t: v('D2t').trim(), l: lines('Dialogu 2', v('D2l')), q: qs('Pyetjet e dialogut 2', v('D2q')) },
+    G: { t: v('Gt').trim(), h: v('Gh').trim(), ex: qs('Ushtrimet e gramatikës', v('Gex')) },
+    build: chk('Ndërto fjalinë', rows(v('build')), 'duhet “shqip | fjalët arabisht me hapësirë”', r => r[0] && r[1] ? [r[0], r[1].split(/\s+/).filter(Boolean)] : null),
+    say: chk('Fol', rows(v('say')), 'duhet “detyra | përgjigjja arabisht”', r => r[0] && r[1] ? [r[0], r[1]] : null),
+  };
+  if (!u.sq) errs.unshift('Shkruaj titullin shqip të njësisë.');
+  if (!u.A.length) errs.push('Fjalori i ditës 1 duhet të ketë së paku një fjalë.');
+  return { u, errs };
+}
+const nextN = c => 1 + Math.max(0, ...c.levels.flatMap(l => l.units.map(u => +u.n || 0)));
+const nextLvId = c => { let n = c.levels.length + 1; const ids = new Set(c.levels.map(l => l.id)); while (ids.has('L' + n)) n++; return 'L' + n; };
+async function publish(c, btn) {
+  if (btn) { btn.disabled = true; btn.classList.add('busy'); }
+  try {
+    const j = await api('curriculum', { method: 'PUT', body: { cur: { levels: c.levels }, base: CUR.v } });
+    setCur(j.cur); toast(`${ic('check')} U ruajt. Nxënësit e shohin ndryshimin menjëherë.`, 'good'); sfx('ok');
+    return true;
+  } catch (x) {
+    toast(esc(x.message)); sfx('no');
+    if (x.status === 409) await fetchCur();
+    if (x.status === 403) { setAuth({ ...ME(), a: false }); setTab('home'); }
+    return false;
+  } finally { if (btn && btn.isConnected) { btn.disabled = false; btn.classList.remove('busy'); } }
+}
+const armed = (t, msg) => { if (t.dataset.armed) return true; t.dataset.armed = '1'; const o = t.innerHTML; t.innerHTML = msg; setTimeout(() => { if (t.isConnected) { delete t.dataset.armed; t.innerHTML = o; } }, 4000); return false; };
+const ibtn = (a, icon, label, attrs, cls) => `<button class="ib${cls ? ' ' + cls : ''}" data-a="${a}" ${attrs || ''} aria-label="${esc(label)}" title="${esc(label)}">${ic(icon)}</button>`;
+
+function admin() {
+  if (AE) return unitEditor();
+  const c = CUR, tot = c.levels.reduce((a, l) => a + l.units.length, 0);
+  app.innerHTML = `<section class="band"><div class="wrap adm">
+   <h1>Paneli i administratorit</h1>
+   <p class="lead">Rregullo programin mësimor. Çdo nivel ka njësitë e veta dhe mbyllet me një test; nxënësi kalon te niveli tjetër kur e kalon testin. Kush di më shumë e bën testin direkt dhe fillon nga niveli tjetër.</p>
+   <div class="admbar">
+    <div class="admst">${ic('cloud')}<span>${c.v ? `Ruajtur në server · ${esc(new Date(c.v).toLocaleString('sq-AL', { dateStyle: 'medium', timeStyle: 'short' }))}${c.by ? ' · nga ' + esc(c.by) : ''}` : 'Programi parazgjedhur (nga data.js). Ruhet në server me ndryshimin e parë.'}</span><b>${c.levels.length} nivele · ${tot} njësi</b></div>
+    <div class="row"><button class="btn sm" data-a="addlv">${ic('plus')} Shto nivel</button><button class="btn sec sm" data-a="export">${ic('dl')} Shkarko JSON</button><label class="btn sec sm" tabindex="0">${ic('ul')} Ngarko JSON<input type="file" id="impf" accept=".json,application/json" hidden></label>${c.v ? `<button class="btn sec sm" data-a="reset">${ic('repeat')} Rikthe parazgjedhjen</button>` : ''}</div>
+   </div>
+   ${c.levels.map((l, li) => `<article class="adl">
+    <div class="adlh"><span class="lvb">${li + 1}</span><b>${lvName(li)}</b><span class="mut sm">${l.units.length} njësi · ${l.units.length * 7} ditë + testi</span>
+     <div class="adbtns">${ibtn('lvup', 'up', 'Lëviz lart', `data-li="${li}"${li ? '' : ' disabled'}`)}${ibtn('lvdn', 'down', 'Lëviz poshtë', `data-li="${li}"${li < c.levels.length - 1 ? '' : ' disabled'}`)}${ibtn('dellv', 'trash', 'Fshi nivelin', `data-li="${li}"`, 'bad')}</div></div>
+    <div class="adf">
+     <label class="fld"><span>Emri i nivelit</span><input data-lf="t" data-li="${li}" value="${esc(l.t)}" maxlength="120"></label>
+     <label class="fld"><span>Pragu i testit (%)</span><input data-lf="pass" data-li="${li}" type="number" min="50" max="100" step="5" value="${l.pass}"></label>
+     <label class="fld wide"><span>Përshkrimi (i shfaqet nxënësit)</span><input data-lf="d" data-li="${li}" value="${esc(l.d)}" maxlength="400"></label>
+    </div>
+    <ol class="adu">${l.units.map((u, k) => `<li>
+      <div class="adui"><b>${esc(u.sq)}</b>${u.ar ? `<span class="ar">${esc(u.ar)}</span>` : ''}<small class="mut">${u.A.length + u.B.length} fjalë · ${u.D1.l.length + u.D2.l.length} rreshta dialogu · ${u.G.ex.length + u.D1.q.length + u.D2.q.length} pyetje · ${u.build.length + u.say.length} ushtrime të foluri</small></div>
+      <div class="adbtns">${ibtn('edu', 'edit', 'Ndrysho njësinë', `data-li="${li}" data-k="${k}"`)}${ibtn('uup', 'up', 'Lëviz lart', `data-li="${li}" data-k="${k}"${k || li ? '' : ' disabled'}`)}${ibtn('udn', 'down', 'Lëviz poshtë', `data-li="${li}" data-k="${k}"${k < l.units.length - 1 || li < c.levels.length - 1 ? '' : ' disabled'}`)}
+       <select data-mv data-li="${li}" data-k="${k}" aria-label="Zhvendose në nivel">${c.levels.map((_, j) => `<option value="${j}"${j === li ? ' selected' : ''}>${lvName(j)}</option>`).join('')}</select>${ibtn('delu', 'trash', 'Fshi njësinë', `data-li="${li}" data-k="${k}"`, 'bad')}</div></li>`).join('') || '<li class="empty sm">Ende pa njësi. Nxënësit e shohin këtë nivel si “Së shpejti”.</li>'}</ol>
+    <button class="btn sec sm" data-a="addu" data-li="${li}">${ic('plus')} Shto njësi</button>
+   </article>`).join('')}
+   <details class="how"><summary>Si funksionojnë nivelet për nxënësin?</summary><div class="howg">
+    <div><b>Rruga.</b> Çdo njësi ka 7 ditë (fjalor, dialog, gramatikë, përsëritje, të folur, test i javës). Pas njësisë së fundit të nivelit hapet testi i nivelit.</div>
+    <div><b>Testi i nivelit.</b> Pyetje nga fjalori, gramatika, dialogët dhe ndërtimi i fjalive të të gjitha njësive të nivelit. Kalohet me pragun që vendos këtu.</div>
+    <div><b>Kalimi përpara.</b> Kush di më shumë shtyp “Kalo me test”. Nëse e kalon, niveli shënohet i kaluar dhe fillon direkt nga niveli tjetër.</div>
+    <div><b>Progresi ruhet.</b> Ndryshimet e programit nuk e fshijnë progresin e nxënësve; fjalët dhe mësimet e kryera mbeten.</div>
+   </div></details>
+  </div></section>`;
+}
+function unitEditor() {
+  const { li, k } = AE, l = CUR.levels[li];
+  if (!l) { AE = null; return admin(); }
+  const u = k >= 0 && l.units[k] ? l.units[k] : fixU({ n: 0, sq: '', ar: '' });
+  const ta = (n, label, val, help, rws, ar) => `<label class="fld"><span>${label}</span>${help ? `<small class="mut">${help}</small>` : ''}<textarea name="${n}" rows="${rws || 6}" spellcheck="false"${ar ? ' class="mixed"' : ''}>${esc(val)}</textarea></label>`;
+  const inp = (n, label, val, ar) => `<label class="fld"><span>${label}</span><input name="${n}" value="${esc(val)}"${ar ? ' dir="rtl" class="ar"' : ''}></label>`;
+  app.innerHTML = `<section class="band"><div class="wrap adm">
+   <button class="link back" data-a="cancel">← Kthehu te paneli</button>
+   <h1>${k >= 0 ? 'Ndrysho njësinë' : 'Njësi e re'}</h1>
+   <p class="lead">${lvName(li)} · ${esc(l.t)}. Shkruaj një element për rresht dhe ndaji fushat me vijën <code>|</code>. Opsioni i parë te pyetjet është gjithmonë i sakti (radha përzihet vetë).</p>
+   <form id="uef" class="uef" novalidate>
+    <fieldset><legend>Titulli</legend><div class="adf">${inp('sq', 'Titulli shqip', u.sq)}${inp('ar', 'Titulli arabisht', u.ar, 1)}</div></fieldset>
+    <fieldset><legend>Dita 1 · Fjalor i ri</legend>${ta('A', 'Fjalët', ser.words(u.A), 'arabisht | shqip | transliterim', 10)}</fieldset>
+    <fieldset><legend>Dita 2 · Dialogu 1</legend>${inp('D1t', 'Titulli i dialogut', u.D1.t)}${ta('D1l', 'Rreshtat', ser.lines(u.D1.l), 'Folësi | arabisht | shqip', 8)}${ta('D1q', 'Pyetjet e kuptimit', ser.qs(u.D1.q), 'pyetja | përgjigjja e saktë | gabim | gabim | gabim', 5)}</fieldset>
+    <fieldset><legend>Dita 3 · Gramatika</legend>${inp('Gt', 'Titulli i gramatikës', u.G.t)}${ta('Gh', 'Shpjegimi (HTML i thjeshtë)', u.G.h, 'Lejohen: &lt;p&gt; &lt;b&gt; &lt;h3&gt; &lt;table&gt; &lt;tr&gt; &lt;td class="ar"&gt; &lt;span class="ar"&gt; &lt;p class="note"&gt; …', 10)}
+     <details class="prev"><summary>Shiko si duket</summary><div class="gram" id="ghp"></div></details>
+     ${ta('Gex', 'Ushtrimet', ser.qs(u.G.ex), 'pyetja | përgjigjja e saktë | gabim | gabim | gabim', 6)}</fieldset>
+    <fieldset><legend>Dita 4 · Fjalor + Dialogu 2</legend>${ta('B', 'Fjalët e reja', ser.words(u.B), 'arabisht | shqip | transliterim', 10)}${inp('D2t', 'Titulli i dialogut 2', u.D2.t)}${ta('D2l', 'Rreshtat', ser.lines(u.D2.l), 'Folësi | arabisht | shqip', 8)}${ta('D2q', 'Pyetjet e kuptimit', ser.qs(u.D2.q), 'pyetja | përgjigjja e saktë | gabim | gabim | gabim', 5)}</fieldset>
+    <fieldset><legend>Dita 6 · Fol dhe ndërto</legend>${ta('build', 'Ndërto fjalinë', ser.build(u.build), 'fjalia shqip | fjalët arabisht sipas radhës, të ndara me hapësirë', 5)}${ta('say', 'Thuaje me zë', ser.say(u.say), 'detyra shqip | përgjigjja arabisht', 5)}</fieldset>
+    <p class="mut sm">Dita 5 (përsëritje e përzier) dhe dita 7 (testi i javës) krijohen vetë nga përmbajtja më lart. Testi i nivelit merr pyetje nga të gjitha njësitë e nivelit.</p>
+    <p class="err" role="alert"></p>
+    <div class="row sticky"><button class="btn" type="submit">${ic('check')} Ruaje njësinë</button><button class="btn sec" type="button" data-a="cancel">Anulo</button></div>
+   </form>
+  </div></section>`;
+  const gp = document.getElementById('ghp'); if (gp) gp.innerHTML = safeHTML(u.G.h);
+}
+async function adminAct(a, t) {
+  const ds = t.dataset, li = +ds.li, k = +ds.k;
+  if (a === 'cancel') { AE = null; admin(); return scrollTo(0, 0); }
+  if (a === 'edu') { AE = { li, k }; unitEditor(); return scrollTo(0, 0); }
+  if (a === 'addu') { AE = { li, k: -1 }; unitEditor(); return scrollTo(0, 0); }
+  if (a === 'export') {
+    const b = new Blob([JSON.stringify({ levels: CUR.levels }, null, 1)], { type: 'application/json' }), url = URL.createObjectURL(b), x = document.createElement('a');
+    x.href = url; x.download = 'programi-arabisht-' + today() + '.json'; document.body.appendChild(x); x.click(); x.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000); return;
+  }
+  if (a === 'reset') {
+    if (!armed(t, 'Kliko sërish: rikthehet programi i data.js')) return;
+    try { await api('curriculum', { method: 'DELETE' }); setCur(null); toast('U rikthye programi parazgjedhur.'); } catch (x) { toast(esc(x.message)); }
+    return admin();
+  }
+  const c = clone(CUR), L0 = c.levels[li];
+  if (a === 'addlv') c.levels.push({ id: nextLvId(c), t: 'Nivel i ri', d: '', pass: PASS, units: [] });
+  else if (a === 'lvup' || a === 'lvdn') { const j = a === 'lvup' ? li - 1 : li + 1; if (!c.levels[j]) return; [c.levels[li], c.levels[j]] = [c.levels[j], c.levels[li]]; }
+  else if (a === 'dellv') {
+    if (c.levels.length < 2) return toast('Programi duhet të ketë së paku një nivel.');
+    if (!armed(t, L0.units.length ? `Fshi edhe ${L0.units.length} njësi?` : 'Fshi?')) return;
+    c.levels.splice(li, 1);
+  } else if (a === 'delu') { if (!armed(t, 'Fshi?')) return; L0.units.splice(k, 1); }
+  else if (a === 'uup' || a === 'udn') {
+    const u = L0.units.splice(k, 1)[0];
+    if (a === 'uup') { if (k > 0) L0.units.splice(k - 1, 0, u); else c.levels[li - 1].units.push(u); }
+    else { if (k < L0.units.length) L0.units.splice(k + 1, 0, u); else c.levels[li + 1].units.unshift(u); }
+  } else return;
+  if (await publish(c, t)) admin();
+}
+
 /* ---------- MËSIMI ---------- */
 let L = null, Q = null, R = null;
 function startLesson(i) {
   if (!unlocked(i)) return;
   document.body.classList.add('inlesson'); top.innerHTML = '';
-  L = { i, st: steps(i), s: 0, ok: 0, tot: 0, xp: 0, miss: 0, t0: Date.now(), xp0: xpToday() };
+  L = { i, st: steps(i).filter(s => s.k !== 'quiz' || s.q.length), s: 0, ok: 0, tot: 0, xp: 0, miss: 0, t0: Date.now(), xp0: xpToday() };
+  sfx('tap'); renderStep();
+}
+function startLevelTest(li) {
+  if (!LV[li] || !LVI[li].length || !lvOpen(li)) return;
+  const q = lvQuestions(li); if (!q.length) return toast('Ky nivel nuk ka ende pyetje për test.');
+  document.body.classList.add('inlesson'); top.innerHTML = '';
+  const passed = lvPassed(li), skipping = !passed && !lvAllDone(li), last = li >= LV.length - 1;
+  const intro = `<div class="center lvintro"><div class="lvbig">${ic('trophy')}</div><p class="k">${lvName(li)} · ${esc(LV[li].t)}</p><h2>Testi i ${lvGen(li)}</h2>
+    <p class="lead" style="margin:0 auto 16px">${skipping ? `E di tashmë këtë nivel? Nëse e kalon testin, ${last ? 'niveli shënohet si i kaluar' : `hapet menjëherë <b>${lvName(li + 1)}</b> dhe fillon prej andej`}. Nëse jo, vazhdon mësimet si zakonisht. Nuk humb asgjë.` : passed ? 'E ke kaluar këtë nivel. Bëje sërish për ushtrim.' : `Testi përfundimtar i nivelit. Kur e kalon, ${last ? 'e përfundon programin' : `hapet <b>${lvName(li + 1)}</b>`}.`}</p>
+    <div class="lvfacts"><span>${ic('target')} <b>${q.length}</b> pyetje</span><span>${ic('trophy')} duhen <b>${lvPass(li)}%</b></span><span>${ic('layers')} ${LVI[li].length} njësi</span></div>
+    <p class="mut sm">Në test gabimet nuk përsëriten. Përgjigju me qetësi.</p></div>`;
+  L = { i: -1, lv: li, first: !passed, st: [{ k: 'intro', h: intro }, { k: 'quiz', test: true, q }], s: 0, ok: 0, tot: 0, xp: 0, miss: 0, t0: Date.now(), xp0: xpToday() };
   sfx('tap'); renderStep();
 }
 const bar = (frac, label, combo) => `<div class="lbar"><div class="lrow"><button class="x" data-quit aria-label="Mbyll mësimin">${ic('x')}</button><div class="prog" role="progressbar" aria-label="${esc(label)}" aria-valuenow="${Math.round(frac * 100)}" aria-valuemin="0" aria-valuemax="100"><b style="width:${Math.max(3, Math.round(frac * 100))}%"></b></div><span class="combo${combo >= 2 ? ' on' : ''}">${ic('flame')}${combo || 0}</span></div><div class="llab">${esc(label)}</div></div>`;
 function renderStep() {
-  const st = L.st[L.s], d = DAYS[L.i], lab = 'Njësia ' + U[d.ui].n + ' · ' + DN[d.di];
+  if (L.s >= L.st.length) return complete();
+  const st = L.st[L.s], d = DAYS[L.i], lab = L.lv !== undefined ? 'Testi i ' + lvGen(L.lv) : lvName(UL[d.ui]) + ' · Njësia ' + (d.ui + 1) + ' · ' + DN[d.di];
   if (st.k === 'quiz') { Q = { items: st.q.slice(), n: 0, total: st.q.length, ok: 0, test: !!st.test, lab, combo: 0 }; renderQ(); return; }
   let h = '';
   if (st.k === 'cards') h = `<h2>Fjalët e reja</h2><p class="lead">Prek secilën kartë për ta dëgjuar. Thuaje me zë dy herë dhe lidhe me një situatë nga jeta jote.</p><div class="cards">${st.w.map((w, j) => `<button class="card" style="--i:${j}" data-say="${esc(w[0])}"><span class="ar">${esc(w[0])}</span>${S.tr ? `<span class="tr">${esc(w[2])}</span>` : ''}<span class="sq">${esc(w[1])}</span><span class="spk">${ic('sound')}</span></button>`).join('')}</div>`;
   if (st.k === 'dialog') { L.lines = st.d.l.map(l => l[1]); h = `<h2>${esc(st.d.t)}</h2><p class="lead">1) Dëgjoje të gjithin pa përkthim. 2) Prek çdo rresht për përkthimin. 3) Lexoje me zë, duke luajtur njërin nga personat.</p><div class="row"><button class="btn sec" data-all>${ic('play')} Dëgjo dialogun</button><button class="btn sec" data-showall>${ic('eye')} Shfaq përkthimet</button></div><div class="dl">${st.d.l.map((l, j) => `<div class="line ${j % 2 ? 'r' : ''}" style="--i:${j}"><span class="who">${esc(l[0])}</span><div class="bub"><div class="ar" data-tog>${esc(l[1])}</div><div class="sq">${esc(l[2])}</div></div><button class="play" data-say="${esc(l[1])}" aria-label="Dëgjo">${ic('sound')}</button></div>`).join('')}</div>`; }
-  if (st.k === 'gram') h = `<h2>${esc(st.g.t)}</h2><p class="lead">Lexoje ngadalë. Mbulo kolonën shqip dhe provo t'i kujtosh kuptimet. Pastaj vijnë ushtrimet.</p><div class="gram">${st.g.h}</div>`;
-  app.innerHTML = bar(L.s / L.st.length, lab, 0) + `<section class="band lesson"><div class="wrap">${h}</div></section><div class="dock"><div class="din"><button class="btn big full" data-next>Vazhdo</button></div></div>`;
+  if (st.k === 'gram') h = `<h2>${esc(st.g.t)}</h2><p class="lead">Lexoje ngadalë. Mbulo kolonën shqip dhe provo t'i kujtosh kuptimet. Pastaj vijnë ushtrimet.</p><div class="gram">${safeHTML(st.g.h)}</div>`;
+  if (st.k === 'intro') h = st.h;
+  app.innerHTML = bar(L.s / L.st.length, lab, 0) + `<section class="band lesson"><div class="wrap">${h}</div></section><div class="dock"><div class="din"><button class="btn big full" data-next>${st.k === 'intro' ? 'Fillo testin' : 'Vazhdo'}</button></div></div>`;
   anim(); scrollTo(0, 0);
 }
 function renderQ() {
@@ -512,19 +804,26 @@ function feedback(ok, correct, src) {
 }
 function finishQuiz() {
   if (Q.test) {
-    const pct = Math.round(Q.ok / Q.total * 100), u = U[DAYS[L.i].ui];
-    if (pct < PASS) {
+    const isLv = L.lv !== undefined, need = isLv ? lvPass(L.lv) : PASS;
+    const pct = Q.total ? Math.round(Q.ok / Q.total * 100) : 100;
+    if (pct < need) {
       sfx('no');
-      app.innerHTML = bar(1, Q.lab, 0) + `<section class="band"><div class="q center fail"><div class="score">${ring(pct, 100, 'big')}<b data-count="${pct}" data-suf="%">0%</b></div><h2>Edhe pak!</h2><p class="lead" style="margin:0 auto 16px">Për ta kaluar testin të duhen ${PASS}%. Përsërit fjalët te Fjalori dhe gramatikën, pastaj provo sërish. Nuk ka afat.</p><div class="row" style="justify-content:center"><button class="btn big" data-go="${L.i}">Provo sërish</button><button class="btn sec" data-home>Kthehu</button></div></div></section>`;
+      const skipping = isLv && L.first && !lvAllDone(L.lv);
+      const msg = skipping ? `Për ta kaluar ${lvName(L.lv)} me test të duhen ${need}%. S'ka problem: vazhdo mësimet e nivelit dhe testi të pret në fund.`
+        : `Për ta kaluar testin të duhen ${need}%. Përsërit fjalët te Fjalori dhe gramatikën, pastaj provo sërish. Nuk ka afat.`;
+      app.innerHTML = bar(1, Q.lab, 0) + `<section class="band"><div class="q center fail"><div class="score">${ring(pct, 100, 'big')}<b data-count="${pct}" data-suf="%">0%</b></div><h2>Edhe pak!</h2><p class="lead" style="margin:0 auto 16px">${msg}</p><div class="row" style="justify-content:center"><button class="btn big" ${isLv ? `data-lvt="${L.lv}"` : `data-go="${L.i}"`}>Provo sërish</button><button class="btn sec" data-home>${skipping ? 'Vazhdo mësimet' : 'Kthehu'}</button></div></div></section>`;
       countUp(); return;
     }
-    S.scores['u' + u.n] = Math.max(S.scores['u' + u.n] || 0, pct); L.pct = pct;
+    if (isLv) { const id = LV[L.lv].id; S.lv[id] = Math.max(S.lv[id] || 0, pct); }
+    else { const u = U[DAYS[L.i].ui]; S.scores['u' + u.n] = Math.max(S.scores['u' + u.n] || 0, pct); }
+    L.pct = pct;
   }
   L.s++; if (L.s < L.st.length) return renderStep();
   complete();
 }
 let AFTER = null;
 function complete() {
+  if (L.lv !== undefined) return completeLevel();
   const d = DAYS[L.i], u = U[d.ui], first = !S.done[d.id];
   if (first) S.done[d.id] = today();
   const add = d.di === 0 ? u.A : d.di === 3 ? u.B : [];
@@ -532,7 +831,15 @@ function complete() {
   const perfect = L.tot > 0 && L.miss === 0, bonus = (first ? 20 : 5) + (perfect ? 10 : 0);
   addXP(bonus); if (L.xp0 < S.goal && xpToday() >= S.goal) L.goalHit = true;
   const act = activity(), nb = checkBadges(); save();
-  results({ title: d.di === 6 ? `Njësia ${u.n} u krye!` : 'Mësimi u krye!', xp: L.xp + bonus, acc: L.tot ? Math.round(L.ok / L.tot * 100) : 100, ms: Date.now() - L.t0, perfect, words: add.length, goalHit: L.goalHit, act, nb, pct: L.pct });
+  results({ title: d.di === 6 ? `Njësia ${d.ui + 1} u krye!` : 'Mësimi u krye!', xp: L.xp + bonus, acc: L.tot ? Math.round(L.ok / L.tot * 100) : 100, ms: Date.now() - L.t0, perfect, words: add.length, goalHit: L.goalHit, act, nb, pct: L.pct });
+}
+function completeLevel() {
+  const li = L.lv, first = L.first, perfect = L.tot > 0 && L.miss === 0, bonus = (first ? 50 : 10) + (perfect ? 10 : 0);
+  addXP(bonus); if (L.xp0 < S.goal && xpToday() >= S.goal) L.goalHit = true;
+  const act = activity(), nb = checkBadges(); save();
+  const nxt = li < LV.length - 1 ? li + 1 : -1;
+  results({ title: `${lvName(li)} u kalua!`, xp: L.xp + bonus, acc: L.tot ? Math.round(L.ok / L.tot * 100) : 100, ms: Date.now() - L.t0, perfect, words: 0, goalHit: L.goalHit, act, nb, pct: L.pct,
+    unlock: first && nxt >= 0 ? `${lvName(nxt)}: ${LV[nxt].t}${LVI[nxt].length ? '' : ' (së shpejti)'}` : '' });
 }
 const mmss = ms => { const s = Math.round(ms / 1000); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 function results(r) {
@@ -545,7 +852,7 @@ function results(r) {
     <div class="rtile ac"><span>${ic('target')} Saktësia</span><b data-count="${r.acc}" data-suf="%">0%</b></div>
     <div class="rtile tm"><span>${ic('clock')} Koha</span><b>${mmss(r.ms)}</b></div>
    </div>
-   <div class="chipsrow">${r.perfect ? `<span class="pill gold">${ic('gem')} Pa asnjë gabim · +10 XP</span>` : ''}${r.goalHit ? `<span class="pill ok">${ic('target')} Qëllimi i ditës u arrit!</span>` : ''}${r.words ? `<span class="pill">${ic('book')} ${r.words} fjalë të reja në përsëritje</span>` : ''}${r.pct ? `<span class="pill ok">${ic('trophy')} Testi: ${r.pct}%</span>` : ''}</div>
+   <div class="chipsrow">${r.perfect ? `<span class="pill gold">${ic('gem')} Pa asnjë gabim · +10 XP</span>` : ''}${r.goalHit ? `<span class="pill ok">${ic('target')} Qëllimi i ditës u arrit!</span>` : ''}${r.words ? `<span class="pill">${ic('book')} ${r.words} fjalë të reja në përsëritje</span>` : ''}${r.pct ? `<span class="pill ok">${ic('trophy')} Testi: ${r.pct}%</span>` : ''}${r.unlock ? `<span class="pill gold">${ic('layers')} U hap ${esc(r.unlock)}</span>` : ''}</div>
    ${r.nb.length ? `<div class="newb"><h3>Medalje e re!</h3>${r.nb.map((b, j) => `<div class="bd got pop" style="--i:${j}"><i>${ic(b[3])}</i><b>${esc(b[1])}</b><span>${esc(b[2])}</span></div>`).join('')}</div>` : ''}
   </div></section><div class="dock"><div class="din"><button class="btn big full" data-after>Vazhdo</button></div></div>`;
   anim(); countUp(); sfx('win'); buzz([15, 60, 15]); setTimeout(() => confetti(), 150);
@@ -612,7 +919,9 @@ app.addEventListener('click', e => {
   if (ds.say !== undefined) { speak(ds.say); t.classList.remove('said'); void t.offsetWidth; t.classList.add('said'); return; }
   if (ds.tog !== undefined) { t.closest('.line').classList.toggle('open'); return; }
   if (ds.showall !== undefined) { app.querySelectorAll('.line').forEach(l => l.classList.add('open')); return; }
+  if (ds.a !== undefined) return adminAct(ds.a, t);
   if (ds.go !== undefined) return startLesson(+ds.go);
+  if (ds.lvt !== undefined) return startLevelTest(+ds.lvt);
   if (ds.home !== undefined) return setTab('home');
   if (ds.quit !== undefined) return quitAsk();
   if (ds.stay !== undefined) { const s = document.getElementById('sheet'); if (s) { s.className = 'sheet'; } return; }
@@ -670,13 +979,49 @@ app.addEventListener('submit', async e => {
   e.preventDefault(); const f = e.target;
   if (f.id === 'authf') return doAuth(f);
   const err = f.querySelector('.err'), b = f.querySelector('[type=submit]');
+  if (f.id === 'uef') {
+    if (!AE) return;
+    const { u, errs } = parseUnit(f);
+    if (errs.length) { err.innerHTML = errs.slice(0, 6).map(esc).join('<br>') + (errs.length > 6 ? `<br>… dhe ${errs.length - 6} të tjera` : ''); err.scrollIntoView({ block: 'center', behavior: 'smooth' }); sfx('no'); return; }
+    err.textContent = '';
+    const c = clone(CUR), lvl = c.levels[AE.li];
+    if (!lvl) return;
+    if (AE.k >= 0 && lvl.units[AE.k]) lvl.units[AE.k] = { ...u, n: lvl.units[AE.k].n }; else lvl.units.push({ ...u, n: nextN(c) });
+    if (await publish(c, b)) { AE = null; admin(); scrollTo(0, 0); }
+    return;
+  }
   const run = async (body, ok) => { err.textContent = ''; b.disabled = true; b.classList.add('busy'); try { await api('auth', { method: 'POST', body }); ok(); } catch (x) { err.textContent = x.message; sfx('no'); } finally { b.disabled = false; b.classList.remove('busy'); } };
   if (f.id === 'pwf') { if (f.np.value.length < 6) { err.textContent = 'Fjalëkalimi i ri duhet të ketë së paku 6 shenja.'; return; } return run({ action: 'password', password: f.p.value, newPassword: f.np.value }, () => { toast(`${ic('check')} Fjalëkalimi u ndryshua.`, 'good'); f.reset(); f.closest('details').open = false; }); }
   if (f.id === 'delf') return run({ action: 'delete', password: f.p.value }, () => { clearAccount(); toast('Llogaria u fshi.'); });
 });
-app.addEventListener('input', e => { if (e.target.id === 'dq') { dq = e.target.value; renderWords(); } });
-app.addEventListener('change', e => {
-  const id = e.target.id;
+app.addEventListener('input', e => {
+  if (e.target.id === 'dq') { dq = e.target.value; renderWords(); }
+  if (e.target.name === 'Gh') { const p = document.getElementById('ghp'); if (p) p.innerHTML = safeHTML(e.target.value); }
+});
+app.addEventListener('change', async e => {
+  const id = e.target.id, ds = e.target.dataset;
+  if (ds.lf !== undefined && isAdm()) {
+    const c = clone(CUR), l = c.levels[+ds.li]; if (!l) return;
+    let v = e.target.value.trim();
+    if (ds.lf === 'pass') { v = Math.min(100, Math.max(50, Math.round(+v) || PASS)); e.target.value = v; }
+    if (ds.lf === 't' && !v) { e.target.value = l.t; return; }
+    if (l[ds.lf] === v) return;
+    l[ds.lf] = v; if (!(await publish(c))) admin();
+    return;
+  }
+  if (ds.mv !== undefined && isAdm()) {
+    const c = clone(CUR), from = c.levels[+ds.li], to = c.levels[+e.target.value]; if (!from || !to || from === to) return;
+    to.units.push(from.units.splice(+ds.k, 1)[0]);
+    await publish(c); return admin();
+  }
+  if (id === 'impf' && isAdm()) {
+    const file = e.target.files && e.target.files[0]; e.target.value = ''; if (!file) return;
+    let j; try { j = JSON.parse(await file.text()); } catch (x) { return toast('Skedari nuk është JSON i vlefshëm.'); }
+    const lv = Array.isArray(j) ? j : j && j.levels;
+    if (!Array.isArray(lv) || !lv.length) return toast('Skedari duhet të ketë “levels”: [ … ].');
+    if (await publish({ levels: lv })) admin();
+    return;
+  }
   if (id === 'tr') { S.tr = e.target.checked; save(); }
   if (id === 'free') { S.free = e.target.checked; save(); }
   if (id === 'snd') { S.sound = e.target.checked; save(); sfx('ok'); }
@@ -695,6 +1040,7 @@ document.addEventListener('keydown', e => {
 applyTheme();
 const h0 = location.hash.slice(1);
 setTab(VIEWS[h0] ? h0 : 'home');
+fetchCur();
 if (ME()) pull();
 addEventListener('hashchange', () => { const h = location.hash.slice(1); if (VIEWS[h] && h !== tab && !document.body.classList.contains('inlesson')) setTab(h); });
 setInterval(() => { if (tab === 'me') paintSync(); }, 30000);

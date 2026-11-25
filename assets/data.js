@@ -1,5 +1,5 @@
 /* Përmbajtja e njësive. Dialogët dhe ushtrimet janë origjinale, sipas temave të librit 1 të «العربية بين يديك».
-   Për të shtuar një njësi: kopjo një objekt {n,ar,sq,A,B,D1,D2,G,build,say} dhe ndryshoje. */
+   Ky është programi parazgjedhur. Administratori e ndryshon nga paneli (Admin) dhe ndryshimet ruhen në server. */
 window.UNITS=[
 
 {n:1,ar:'التَّحِيَّةُ وَالتَّعَارُفُ',sq:'Përshëndetja dhe njohja',
@@ -96,4 +96,10 @@ build:[['Ne shkojmë në xhami.',['نَحْنُ','نَذْهَبُ','إِلَى'
 say:[['Çfarë i thua dikujt pas namazit?','تَقَبَّلَ اللَّهُ'],['Përgjigju kur të thonë “Allahu e pranoftë”.','مِنَّا وَمِنْكُمْ'],['Thuaj: Marr abdes.','أَتَوَضَّأُ'],['Pyet: A e dëgjon ezanin?','هَلْ تَسْمَعُ الْأَذَانَ؟'],['Thuaj: Ne falim pesë namaze.','نُصَلِّي خَمْسَ صَلَوَاتٍ']]}
 
 ];
-window.SOON=[['الدِّرَاسَةُ','Studimi'],['الْعَمَلُ','Puna'],['التَّسَوُّقُ','Blerjet'],['الصِّحَّةُ','Shëndeti'],['السَّفَرُ','Udhëtimi'],['الْحَجُّ','Haxhi']];
+/* Nivelet parazgjedhura. units = numrat (n) e njësive më lart. Administratori mund t'i ndryshojë te paneli (ruhen në server). */
+window.LEVELS=[
+ {id:'L1',t:'Fillestar',d:'Përshëndetja, familja, banimi: hapat e parë në arabisht.',pass:80,units:[1,2,3]},
+ {id:'L2',t:'Bazë',d:'Jeta e përditshme, ushqimi dhe pija, namazi.',pass:80,units:[4,5,6]},
+ {id:'L3',t:'Mesatar',d:'Studimi, puna, blerjet.',pass:80,units:[]},
+ {id:'L4',t:'I përparuar',d:'Shëndeti, udhëtimi, haxhi.',pass:80,units:[]}
+];
