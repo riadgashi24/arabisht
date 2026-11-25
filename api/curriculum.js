@@ -53,7 +53,8 @@ function clean(c) {
     const units = arr(l.units, 100).map(unit);
     units.forEach(u => { if (ns.has(u.n)) throw new Error('Dy njësi kanë të njëjtin numër (n = ' + u.n + ').'); ns.add(u.n); });
     const pass = Math.round(+l.pass) || 80;
-    out.push({ id, t: str(l.t, 120) || 'Nivel', d: str(l.d, 400), pass: Math.min(100, Math.max(50, pass)), units });
+    const m = ['dialog', 'read', 'text'].includes(l.m) ? l.m : 'dialog';
+    out.push({ id, t: str(l.t, 120) || 'Nivel', d: str(l.d, 400), pass: Math.min(100, Math.max(50, pass)), m, units });
   }
   return { levels: out };
 }

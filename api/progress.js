@@ -1,7 +1,7 @@
 /* GET /api/progress → {data}
    PUT /api/progress {data, replace?} → {data}  (bashkohet me atë që është në server, përveç kur replace:true) */
 'use strict';
-const { db, isAdmin, auth, mergeState, body, send, wrap } = require('./_lib');
+const { db, isAdmin, lbUpdate, auth, mergeState, body, send, wrap } = require('./_lib');
 
 module.exports = wrap(async (req, res) => {
   const me = await auth(req);
@@ -21,6 +21,7 @@ module.exports = wrap(async (req, res) => {
     const s = JSON.stringify(data);
     if (s.length > 300000) return send(res, 413, { error: 'Progresi është shumë i madh.' });
     await db.set(key, s);
+    try { await lbUpdate(me, data); } catch (e) { console.error('leaderboard', e); }
     return send(res, 200, { data });
   }
 

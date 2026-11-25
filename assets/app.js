@@ -8,7 +8,7 @@ const KEY = 'bayna-sq-v1', AKEY = 'bayna-auth', CKEY = 'bayna-cur';
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ---------- GJENDJA ---------- */
-const fresh = () => ({ done: {}, cards: {}, log: {}, xp: {}, scores: {}, lv: {}, badges: {}, frz: {}, freezes: 0, frzAt: '', best: 0, free: false, tr: true, goal: 100, sound: true, theme: 'auto', at: 0 });
+const fresh = () => ({ done: {}, cards: {}, log: {}, xp: {}, scores: {}, lv: {}, badges: {}, frz: {}, freezes: 0, frzAt: '', best: 0, free: false, tr: true, lb: true, goal: 100, sound: true, theme: 'auto', at: 0 });
 const OBJS = ['done', 'cards', 'log', 'xp', 'scores', 'lv', 'badges', 'frz'];
 const norm = o => { const s = { ...fresh(), ...(o && typeof o === 'object' ? o : {}) }; OBJS.forEach(k => { if (!s[k] || typeof s[k] !== 'object' || Array.isArray(s[k])) s[k] = {}; }); return s; };
 const load = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
@@ -40,14 +40,15 @@ const fixU = u => ({ ...u, n: +u.n, ar: u.ar || '', sq: u.sq || 'Njësi', A: arr
 function defaultCur() {
   const by = {}; (window.UNITS || []).forEach(u => { by[u.n] = u; });
   const ls = window.LEVELS || [{ id: 'L1', t: 'Niveli 1', units: (window.UNITS || []).map(u => u.n) }];
-  return { v: 0, levels: ls.map(l => ({ id: l.id, t: l.t, d: l.d || '', pass: l.pass || PASS, units: (l.units || []).map(n => by[n]).filter(Boolean) })) };
+  return { v: 0, levels: ls.map(l => ({ id: l.id, t: l.t, d: l.d || '', pass: l.pass || PASS, m: l.m || 'dialog', units: (l.units || []).map(n => by[n]).filter(Boolean) })) };
 }
 function fixCur(c) {
   try {
     if (!c || !Array.isArray(c.levels) || !c.levels.length) return null;
-    return { v: +c.v || 0, by: c.by || '', levels: c.levels.map((l, i) => ({ id: String(l.id || 'L' + (i + 1)), t: l.t || 'Nivel', d: l.d || '', pass: +l.pass || PASS, units: arrs(l.units).map(fixU) })) };
+    return { v: +c.v || 0, by: c.by || '', levels: c.levels.map((l, i) => ({ id: String(l.id || 'L' + (i + 1)), t: l.t || 'Nivel', d: l.d || '', pass: +l.pass || PASS, m: MODES_OK.includes(l.m) ? l.m : 'dialog', units: arrs(l.units).map(fixU) })) };
   } catch (e) { return null; }
 }
+const MODES_OK = ['dialog', 'read', 'text'];
 let CUR, LV, U, UL, LVI, DAYS, ALLW, PENDING = null;
 function useCur(c) {
   CUR = fixCur(c) || defaultCur();
@@ -57,6 +58,18 @@ function useCur(c) {
   ALLW = U.flatMap((u, ui) => u.A.concat(u.B).map(w => ({ ar: w[0], sq: w[1], tr: w[2], n: u.n, no: ui + 1 })));
 }
 useCur(load(CKEY));
+/* sistemi i çdo niveli: si në «العربية بين يديك», mënyra e mësimit ndryshon nga niveli në nivel */
+const MODES = {
+  dialog: { t: 'Dialogë', d: 'Fjalor, dialogë të shkurtër dhe gramatikë bazë. Me transliterim.', tr: true,
+    days: DN },
+  read: { t: 'Dialog + lexim', d: 'Një dialog dhe një tekst leximi në çdo njësi. Transliterimi vetëm te fjalët e reja.', tr: true,
+    days: ['Fjalor i ri', 'Dialogu', 'Gramatika', 'Fjalor + Leximi', 'Përsëritje e përzier', 'Shkrim dhe të folur', 'Testi i javës'] },
+  text: { t: 'Tekste dhe nahv', d: 'Dy tekste leximi, gramatikë (nahv) dhe shprehje. Pa transliterim.', tr: false,
+    days: ['Fjalor i ri', 'Teksti i leximit', 'Gramatika (nahv)', 'Fjalor + Teksti 2', 'Përsëritje e përzier', 'Shprehje dhe ndërtim', 'Testi i javës'] },
+};
+const lvMode = li => (LV[li] && MODES[LV[li].m]) ? LV[li].m : 'dialog';
+const uMode = ui => lvMode(UL[ui]);
+const dname = (ui, di) => MODES[uMode(ui)].days[di];
 function setCur(c) {
   if (document.body.classList.contains('inlesson')) { PENDING = { c }; return; }
   useCur(c);
@@ -179,6 +192,12 @@ const I = {
   eye: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
   repeat: '<path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>',
   play: '<path d="M7 4.5v15l12-7.5z"/>',
+  share: '<path d="M12 3v12M8 7l4-4 4 4"/><path d="M7 10H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-1"/>',
+  addsq: '<rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8v8M8 12h8"/>',
+  phone: '<rect x="6" y="2" width="12" height="20" rx="3"/><path d="M11 18h2"/>',
+  dots: '<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>',
+  compass: '<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/>',
+  link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
@@ -246,6 +265,7 @@ async function pull() {
   try {
     const j = await api('progress');
     if (j.data) { S = merge(S, j.data); persist(); applyTheme(); }
+    loadGroups(true);
     if (ME() && !!j.admin !== !!ME().a) { setAuth({ ...ME(), a: !!j.admin }); if (tab === 'admin' && !j.admin) tab = 'home'; }
     lastSync = Date.now(); syncState = 'ok'; dirty = true; push();
     if (!document.body.classList.contains('inlesson') && !document.body.classList.contains('bare')) refresh();
@@ -332,12 +352,12 @@ const vq = (ws, pool, n) => shuffle(ws.map((w, i) => {
 const bq = (u, all) => u.build.map(b => { const ex = shuffle(all.map(w => w[0]).filter(w => !w.includes(' ') && !b[1].includes(w)))[0]; return { k: 'build', p: b[0], tiles: b[1], pool: shuffle(ex ? b[1].concat(ex) : b[1]) }; });
 function steps(i) {
   const d = DAYS[i], u = U[d.ui], all = u.A.concat(u.B), prev = U.slice(0, d.ui).flatMap(x => x.A.concat(x.B));
-  const old = prev.length ? vq(shuffle(prev).slice(0, 3), prev) : [];
+  const old = prev.length ? vq(shuffle(prev).slice(0, 3), prev) : [], md = uMode(d.ui);
   switch (d.di) {
     case 0: return [{ k: 'cards', w: u.A }, { k: 'quiz', q: vq(u.A, u.A) }];
-    case 1: return [{ k: 'dialog', d: u.D1 }, { k: 'quiz', q: u.D1.q.map(mk) }];
+    case 1: return [{ k: md === 'text' ? 'read' : 'dialog', d: u.D1 }, { k: 'quiz', q: u.D1.q.map(mk) }];
     case 2: return [{ k: 'gram', g: u.G }, { k: 'quiz', q: shuffle(u.G.ex.map(mk)) }];
-    case 3: return [{ k: 'cards', w: u.B }, { k: 'dialog', d: u.D2 }, { k: 'quiz', q: vq(u.B, all).concat(u.D2.q.map(mk)) }];
+    case 3: return [{ k: 'cards', w: u.B }, { k: md === 'dialog' ? 'dialog' : 'read', d: u.D2 }, { k: 'quiz', q: vq(u.B, all).concat(u.D2.q.map(mk)) }];
     case 4: return [{ k: 'quiz', q: shuffle(vq(all, all, 12).concat(shuffle(u.G.ex).slice(0, 4).map(mk), old)) }];
     case 5: return [{ k: 'quiz', q: bq(u, all).concat(u.say.map(s => ({ k: 'say', p: s[0], a: s[1] }))) }];
     case 6: return [{ k: 'quiz', test: true, q: shuffle(vq(all, all, 10).concat(shuffle(u.G.ex).slice(0, 4).map(mk), old, bq(u, all).slice(0, 2))) }];
@@ -354,7 +374,7 @@ function lvQuestions(li) {
 }
 
 /* ---------- KOKA DHE NAVIGIMI ---------- */
-const TABS0 = [['home', 'Mësimi', 'home'], ['dict', 'Fjalori', 'book'], ['stats', 'Progresi', 'chart'], ['me', 'Profili', 'user']];
+const TABS0 = [['home', 'Mësimi', 'home'], ['dict', 'Fjalori', 'book'], ['rank', 'Renditja', 'trophy'], ['stats', 'Progresi', 'chart'], ['me', 'Profili', 'user']];
 const isAdm = () => !!(ME() && ME().a);
 const TABSF = () => isAdm() ? TABS0.concat([['admin', 'Admin', 'gear']]) : TABS0;
 let tab = 'home';
@@ -362,13 +382,13 @@ function chrome() {
   const si = streakInfo(), TABS = TABSF();
   top.innerHTML = `<div class="in">
   <button class="brand" data-tab="home" aria-label="Mëso Arabisht, faqja kryesore"><span class="logo">ع</span><span class="bt">Mëso Arabisht</span></button>
-  <nav class="tabs" aria-label="Navigimi kryesor">${TABS.map(([k, l, i]) => `<button class="tab" data-tab="${k}"${tab === k ? ' aria-current="page"' : ''}>${ic(i)}<span>${l}</span></button>`).join('')}</nav>
+  <nav class="tabs" aria-label="Navigimi kryesor">${TABS.map(([k, l, i]) => `<button class="tab" data-tab="${k}"${tab === k ? ' aria-current="page"' : ''}>${ic(i)}<span>${l}</span>${k === 'rank' && GRP.invites.length ? '<i class="dot" aria-label="ftesë e re"></i>' : ''}</button>`).join('')}</nav>
   <div class="chips">
    <button class="chip fire${si.done ? ' lit' : ''}" data-tab="stats" aria-label="Seria: ${si.n} ditë radhazi">${ic('flame')}<b>${si.n}</b></button>
    <button class="chip bolt" data-tab="stats" aria-label="XP sot: ${xpToday()}">${ic('bolt')}<b>${xpToday()}</b></button>
   </div></div>`;
 }
-const VIEWS = { home, dict, stats, me, admin };
+const VIEWS = { home, dict, rank, stats, me, admin };
 function setTab(t) {
   if (!VIEWS[t] || (t === 'admin' && !isAdm())) t = 'home';
   hush(); L = Q = R = null;
@@ -381,7 +401,7 @@ function setTab(t) {
   if (document.startViewTransition && !reduce && app.dataset.view) document.startViewTransition(go); else go();
   app.dataset.view = t;
 }
-const refresh = () => { if (VIEWS[tab] && !document.body.classList.contains('inlesson')) { VIEWS[tab](); chrome(); } };
+const refresh = () => { if (VIEWS[tab] && !document.body.classList.contains('inlesson') && !document.body.classList.contains('bare')) { VIEWS[tab](); chrome(); } };
 document.addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (b) { sfx('tap'); setTab(b.dataset.tab); } });
 
 /* ---------- HYRJA / LLOGARIA ---------- */
@@ -401,6 +421,7 @@ function authView(mode, prefill) {
     <p class="fine">${su ? 'Vetëm emër dhe fjalëkalim. Pa email. Progresi ruhet në llogari dhe e gjen në çdo pajisje.' : 'Mirë se u ktheve! Progresi yt të pret.'}</p>
    </form>
    <button class="link" data-guest>Vazhdo pa llogari →</button>
+   ${STANDALONE() ? '' : `<button class="link inst-l" data-inst>${ic('phone')} Shkarkoje në ${IOS ? 'iPhone' : ANDROID ? 'telefon' : 'telefon (iPhone / Android)'}</button>`}
   </div></section>`;
   anim();
   const inp = app.querySelector(prefill ? '[name=p]' : '[name=u]');
@@ -415,6 +436,7 @@ async function doAuth(f) {
   try {
     const j = await api('auth', { method: 'POST', body: { action: mode, username: u, password: p } });
     setAuth({ u: j.username, t: j.token, a: !!j.admin });
+    GRP = { groups: [], invites: [], at: 0 }; LBC = {}; lbScope = 'all';
     if (j.data) S = merge(S, j.data);
     persist(); applyTheme(); dirty = true; push();
     sfx('win'); buzz(20);
@@ -434,7 +456,7 @@ async function logout(btn) {
   clearAccount();
   toast('Dole nga llogaria.');
 }
-function clearAccount() { const th = S.theme; S = fresh(); S.theme = th; persist(); setAuth(null); dirty = false; applyTheme(); authView('login'); }
+function clearAccount() { GRP = { groups: [], invites: [], at: 0 }; LBC = {}; lbScope = 'all'; const th = S.theme; S = fresh(); S.theme = th; persist(); setAuth(null); dirty = false; applyTheme(); authView('login'); }
 
 /* ---------- KRYEFAQJA ---------- */
 const hello = () => { const h = new Date().getHours(); return h < 5 ? 'Natë e mbarë' : h < 12 ? 'Mirëmëngjes' : h < 18 ? 'Mirëdita' : 'Mirëmbrëma'; };
@@ -450,7 +472,7 @@ function unitCard(ui, ci) {
   const u = U[ui], n = DN.filter((_, di) => S.done[DAYS[ui * 7 + di].id]).length, sc = S.scores['u' + u.n];
   return `<article class="unit${n === 7 ? ' fin' : ''}"><div class="uh"><div><div class="ul">Njësia ${ui + 1}${sc ? ` · <span class="pill ok">${ic('trophy')} ${sc}%</span>` : ''}</div><h2>${esc(u.sq)}</h2></div><span class="ar">${esc(u.ar)}</span></div>
      <div class="ubar"><b style="width:${Math.round(n / 7 * 100)}%"></b></div>
-     <div class="path">${DN.map((nm, di) => { const i = ui * 7 + di, d = DAYS[i], done = !!S.done[d.id], ok = unlocked(i), cur = i === ci && ok;
+     <div class="path">${MODES[uMode(ui)].days.map((nm, di) => { const i = ui * 7 + di, d = DAYS[i], done = !!S.done[d.id], ok = unlocked(i), cur = i === ci && ok;
        return `<button class="node${done ? ' done' : ''}${cur ? ' cur' : ''}${di === 6 ? ' test' : ''}" data-go="${i}"${ok ? '' : ' disabled'} aria-label="Dita ${di + 1}: ${esc(nm)}${done ? ' (e kryer)' : ok ? '' : ' (e mbyllur)'}">${cur ? '<em>SOT</em>' : ''}<i>${done ? ic('check') : !ok ? ic('lock') : di === 6 ? ic('trophy') : di + 1}</i><small>${esc(nm)}</small></button>`; }).join('')}</div></article>`;
 }
 function skipBox(li) {
@@ -469,7 +491,7 @@ function levelSec(li, nx, ci) {
     `<div class="lvtest${passed ? ' done' : ''}${ready && !passed ? ' ready' : ''}"><button class="node test${passed ? ' done' : ''}${cur && nx.k === 'lv' && ready ? ' cur' : ''}" data-lvt="${li}"${ready || passed ? '' : ' disabled'} aria-label="Testi i ${lvGen(li)}"><i>${passed ? ic('check') : ready ? ic('trophy') : ic('lock')}</i></button>
       <div class="lvtt"><b>Testi i ${lvGen(li)}</b><span>${passed ? `Kaluar me ${S.lv[l.id]}%. Mund ta bësh sërish për ushtrim.` : ready ? `Gati! Duhen ${lvPass(li)}% për të kaluar te ${nextName}.` : `Hapet pasi t'i kryesh të gjitha njësitë e nivelit. Duhen ${lvPass(li)}%.`}</span></div>
       ${!passed && !ready ? `<button class="btn sec sm" data-lvt="${li}">${ic('skip')} Kalo me test</button>` : ''}</div>`;
-  return `<section class="lev${passed ? ' pass' : ''}${open ? '' : ' lock'}${cur ? ' cur' : ''}"><header class="lvh"><div class="lvb">${passed ? ic('check') : open && has ? li + 1 : ic(has ? 'lock' : 'clock')}</div><div class="lvt"><div class="ul">${lvName(li)} ${st}</div><h2>${esc(l.t)}</h2>${l.d ? `<p class="mut">${esc(l.d)}</p>` : ''}</div></header>
+  return `<section class="lev${passed ? ' pass' : ''}${open ? '' : ' lock'}${cur ? ' cur' : ''}"><header class="lvh"><div class="lvb">${passed ? ic('check') : open && has ? li + 1 : ic(has ? 'lock' : 'clock')}</div><div class="lvt"><div class="ul">${lvName(li)} ${st} <span class="pill" title="${esc(MODES[lvMode(li)].d)}">${ic('book')} ${esc(MODES[lvMode(li)].t)}</span></div><h2>${esc(l.t)}</h2>${l.d ? `<p class="mut">${esc(l.d)}</p>` : ''}</div></header>
    ${ds.length && open ? `<div class="ubar"><b style="width:${Math.round(dn / ds.length * 100)}%"></b></div>` : ''}${body}</section>`;
 }
 function home() {
@@ -486,8 +508,8 @@ function home() {
     else { th = `<div class="k">${ic('check')} Mësimi i sotëm u krye</div><div class="t">Testi i ${lvGen(li)} hapet nesër.</div><p class="mut">Pushimi mes mësimeve e ndihmon kujtesën.${nd ? ' Ndërkohë ke fjalë për përsëritje.' : ''}</p>${revBig}`; skip = skipBox(li); }
   } else {
     const cd = DAYS[nx.i];
-    th = unlocked(nx.i) ? `<div class="k">Mësimi i sotëm · ${lvName(nx.li)} · Njësia ${cd.ui + 1}, dita ${cd.di + 1} nga 7</div><div class="t">${esc(DN[cd.di])}</div><div class="row"><button class="btn big" data-go="${nx.i}">${ic('play')} Fillo mësimin</button>${rev}</div>`
-      : `<div class="k">${ic('check')} Mësimi i sotëm u krye</div><div class="t">Dita e radhës (${esc(DN[cd.di])}) hapet nesër.</div><p class="mut">Pushimi mes mësimeve e ndihmon kujtesën.${nd ? ' Ndërkohë ke fjalë për përsëritje.' : ''}</p>${revBig}`;
+    th = unlocked(nx.i) ? `<div class="k">Mësimi i sotëm · ${lvName(nx.li)} · Njësia ${cd.ui + 1}, dita ${cd.di + 1} nga 7</div><div class="t">${esc(dname(cd.ui, cd.di))}</div><div class="row"><button class="btn big" data-go="${nx.i}">${ic('play')} Fillo mësimin</button>${rev}</div>`
+      : `<div class="k">${ic('check')} Mësimi i sotëm u krye</div><div class="t">Dita e radhës (${esc(dname(cd.ui, cd.di))}) hapet nesër.</div><p class="mut">Pushimi mes mësimeve e ndihmon kujtesën.${nd ? ' Ndërkohë ke fjalë për përsëritje.' : ''}</p>${revBig}`;
     skip = skipBox(nx.li);
   }
   const nudge = !ME() && doneN ? `<div class="nudge">${ic('cloud')}<div><b>Mos e humb progresin</b><span>Krijo llogari me emër dhe fjalëkalim. Progresi ruhet dhe e ke në çdo pajisje.</span></div><button class="btn sm" data-auth="signup">Krijo llogari</button></div>` : '';
@@ -499,11 +521,12 @@ function home() {
    </div>
    <div class="today">${th}${skip}</div>
   </div></section>
-  ${nudge ? `<section class="band tight"><div class="wrap">${nudge}</div></section>` : ''}
+  ${nudge || installBanner() ? `<section class="band tight"><div class="wrap">${nudge}${installBanner()}</div></section>` : ''}
   <section class="band"><div class="wrap">
    ${LV.map((_, li) => levelSec(li, nx, ci)).join('')}
    <details class="how"><summary>Pse funksionon kjo mënyrë?</summary><div class="howg">
     <div><b>Nivele me test.</b> Çdo nivel mbyllet me një test. Kur e kalon, hapet niveli tjetër. Nëse di më shumë, bëje testin direkt dhe kalo përpara.</div>
+    <div><b>Sistemi ndryshon me nivelin.</b> Niveli 1: dialogë me transliterim. Niveli 2: dialog dhe tekst leximi. Nivelet 3–4: tekste, nahv dhe shprehje, pa transliterim.</div>
     <div><b>Nxjerrja nga kujtesa.</b> Nuk e lexon vetëm mësimin: përgjigjesh, ndërton fjali dhe flet. Kështu fjalët ngulen më mirë se me rilexim.</div>
     <div><b>Përsëritje me intervale.</b> Fjalët kthehen pas 1, 2, 4, 7, 15, 30 e 60 ditësh, pikërisht kur fillon t'i harrosh.</div>
     <div><b>Pak, por çdo ditë.</b> Një mësim në ditë dhe seria e ditëve. Gabimet kthehen në fund derisa t'i bësh saktë.</div>
@@ -559,6 +582,167 @@ function stats() {
   countUp();
 }
 
+/* ---------- RENDITJA ---------- */
+const LBP = [['d', 'Sot'], ['w', 'Java'], ['m', 'Muaji'], ['a', 'Gjithsej']];
+const MUAJT = ['janar', 'shkurt', 'mars', 'prill', 'maj', 'qershor', 'korrik', 'gusht', 'shtator', 'tetor', 'nëntor', 'dhjetor'];
+let lbP = 'w', lbScope = 'all', LBC = {}, LBE = null, lbBusy = false;
+let GRP = { groups: [], invites: [], at: 0 };
+const lbKey = () => lbScope + ':' + lbP;
+const curGroup = () => GRP.groups.find(g => g.id === lbScope) || null;
+const dm = k => +k.slice(8) + ' ' + MUAJT[+k.slice(5, 7) - 1].slice(0, 3);
+const leftTo = end => { const n = between(today(), end); return n <= 0 ? 'mbaron sot' : n === 1 ? 'mbaron nesër' : 'mbaron pas ' + n + ' ditësh'; };
+function lbLabel(d) {
+  const P = d && d.period; if (!P) return '';
+  if (lbP === 'd') return 'Sot · rifillon në mesnatë';
+  if (lbP === 'w') return `Java ${dm(P.w)} – ${dm(P.we)} · ${leftTo(P.we)}`;
+  if (lbP === 'm') { const y = +P.m.slice(0, 4), mo = +P.m.slice(5, 7), nm = MUAJT[mo - 1]; return `${nm[0].toUpperCase() + nm.slice(1)} ${y} · ${leftTo(fmt(new Date(y, mo, 0)))}`; }
+  return 'Që nga fillimi';
+}
+const rankOpen = () => tab === 'rank' && !document.body.classList.contains('inlesson') && !document.body.classList.contains('bare');
+async function loadLB(force) {
+  if (lbBusy) return;
+  const key = lbKey(), c = LBC[key];
+  if (!force && c && Date.now() - c.at < 30000) return;
+  lbBusy = true; LBE = null;
+  try {
+    if (ME() && (dirty || syncing)) await push();
+    const j = await api('leaderboard?p=' + lbP + (lbScope !== 'all' ? '&g=' + lbScope : '')); j.at = Date.now(); LBC[key] = j;
+    if (j.group) { const i = GRP.groups.findIndex(g => g.id === j.group.id); if (i >= 0) GRP.groups[i] = j.group; }
+  } catch (e) {
+    if (e.status === 404 && lbScope !== 'all') { lbScope = 'all'; toast(esc(e.message)); loadGroups(true); }
+    else LBE = e.message;
+  }
+  lbBusy = false;
+  if (rankOpen()) rank();
+}
+/* grupet e mia dhe ftesat */
+async function loadGroups(force) {
+  if (!ME() || (!force && Date.now() - GRP.at < 60000)) return;
+  GRP.at = Date.now();
+  try { useGroups(await api('groups')); } catch (e) { GRP.at = 0; }
+}
+function useGroups(j) {
+  const had = GRP.invites.length;
+  GRP = { groups: j.groups || [], invites: j.invites || [], at: Date.now() };
+  if (lbScope !== 'all' && !curGroup()) lbScope = 'all';
+  if (!document.body.classList.contains('inlesson') && !document.body.classList.contains('bare')) chrome();
+  if (rankOpen()) rank();
+  if (!had && GRP.invites.length && tab !== 'rank') toast(`${ic('user')} Ke një ftesë për një grup. Shiko te Renditja.`);
+}
+async function gAct(body, btn) {
+  if (btn) { btn.disabled = true; btn.classList.add('busy'); }
+  try {
+    const j = await api('groups', { method: 'POST', body });
+    Object.keys(LBC).forEach(k => { if (!k.startsWith('all:')) delete LBC[k]; });
+    useGroups(j);
+    const warn = [];
+    if (j.bad && j.bad.length) warn.push(`Nuk u gjet asnjë llogari me emrin: <b>${j.bad.map(esc).join(', ')}</b>`);
+    if (j.full && j.full.length) warn.push(`Nuk mund të ftohen tani (kanë shumë ftesa ose grupi është plot): <b>${j.full.map(esc).join(', ')}</b>`);
+    j.warn = warn.join('<br>');
+    return j;
+  } catch (x) {
+    toast(esc(x.message)); sfx('no');
+    if (x.status === 404) loadGroups(true);
+    return null;
+  } finally { if (btn && btn.isConnected) { btn.disabled = false; btn.classList.remove('busy'); } }
+}
+const lvlOf = l => 'Niveli ' + Math.min(l + 1, Math.max(1, LV.length));
+const hue = u => { let h = 7; for (const ch of u) h = (h * 31 + ch.charCodeAt(0)) % 360; return h; };
+const lav = (u, cls) => `<span class="lav${cls ? ' ' + cls : ''}" style="--h:${hue(u)}">${esc(u[0].toUpperCase())}</span>`;
+function board(d, meU, adm) {
+  const hide = u => adm && u !== meU ? `<button class="ib bad lbhide" data-lbhide="${esc(u)}" aria-label="Hiqe ${esc(u)} nga renditja" title="Hiqe nga renditja">${ic('x')}</button>` : '';
+  const t = d.top, POS = [2, 1, 3];
+  return `<div class="podium">${[t[1], t[0], t[2]].map((r, j) => r ? `<div class="pod p${POS[j]}${r.u === meU ? ' me' : ''}">${POS[j] === 1 ? `<span class="crown">${ic('crown')}</span>` : ''}${lav(r.u, 'big')}<b>${esc(r.u)}${r.u === meU ? ' <small>(ti)</small>' : ''}</b><span class="pxp">${ic('bolt')}${r.xp}</span><small class="mut">${r.s ? ic('flame') + r.s + ' · ' : ''}${lvlOf(r.l)}</small>${hide(r.u)}<div class="step">${POS[j]}</div></div>` : '<div class="pod none"></div>').join('')}</div>
+    ${t.length > 3 ? `<ol class="lbl">${t.slice(3).map((r, i) => `<li class="lbr${r.u === meU ? ' me' : ''}" style="--i:${i}"><span class="lbn">${i + 4}</span>${lav(r.u)}<span class="lbu"><b>${esc(r.u)}${r.u === meU ? ' <small>(ti)</small>' : ''}</b><small>${r.s ? ic('flame') + ' ' + r.s + ' ditë · ' : ''}${lvlOf(r.l)}</small></span><b class="lbxp">${r.xp} XP</b>${hide(r.u)}</li>`).join('')}</ol>` : ''}`;
+}
+function rank() {
+  const m = ME(), meU = m ? m.u : '', g = curGroup(), d = LBC[lbKey()], adm = !!(d && d.admin) && !g, hidden = m && S.lb === false && !g;
+  let body;
+  if (!d) body = LBE ? `<div class="empty">${esc(LBE)}<br><button class="btn sec sm" data-lbr style="margin-top:12px">Provo sërish</button></div>` : `<div class="lbsk" aria-label="Duke u ngarkuar">${'<i></i>'.repeat(6)}</div>`;
+  else if (!d.top.length) body = `<div class="empty">${{ d: 'Ende askush sot.', w: 'Ende askush këtë javë.', m: 'Ende askush këtë muaj.', a: 'Renditja është ende bosh.' }[lbP]} Bëj një mësim dhe dil i pari!</div>`;
+  else body = board(d, meU, adm) + (adm ? `<p class="mut sm">Si administrator mund të heqësh nga renditja këdo që mashtron (butoni ${ic('x')} pranë emrit).</p>` : '')
+    + (g && d.top.length === 1 ? `<div class="empty sm">Je vetëm në grup. ${g.inv.length ? `Prit që të ftuarit (${g.inv.map(esc).join(', ')}) ta pranojnë ftesën.` : 'Fto shokët që të filloni garën.'}</div>` : '');
+  const inTop = !!(d && d.top.some(r => r.u === meU));
+  const mine = !m || hidden || !d || !d.me || g ? '' : d.me.rank ? (inTop ? '' : `<div class="lbme">${lav(meU)}<span>Je në vendin e <b>${d.me.rank}</b> nga ${d.total}</span><b>${d.me.score} XP</b></div>`)
+    : `<div class="lbme">${ic('bolt')}<span>Ende pa pikë ${{ d: 'sot', w: 'këtë javë', m: 'këtë muaj', a: '' }[lbP]}. Bëj një mësim dhe futu në renditje!</span></div>`;
+  const note = !m ? `<div class="nudge">${ic('trophy')}<div><b>Futu edhe ti në renditje</b><span>Krijo llogari me emër dhe fjalëkalim; XP-ja jote numërohet menjëherë. Me llogari mund të krijosh edhe grupe me shokët.</span></div><button class="btn sm" data-auth="signup">Krijo llogari</button></div>`
+    : hidden ? `<div class="nudge">${ic('eye')}<div><b>Je i fshehur nga renditja e përgjithshme</b><span>Të tjerët nuk të shohin këtu. Në grupet ku je anëtar dukesh gjithsesi.</span></div><button class="btn sm" data-lbon>Shfaqmë</button></div>` : '';
+  const invites = m ? GRP.invites.map(v => `<div class="ginv">${lav(v.owner)}<div><b>${esc(v.owner)} të fton në grupin «${esc(v.name)}»</b><span>${v.n} ${v.n === 1 ? 'anëtar' : 'anëtarë'} · garë me XP brenda grupit</span></div><div class="row"><button class="btn sm" data-gacc="${v.id}">${ic('check')} Prano</button><button class="btn sec sm" data-gdec="${v.id}">Refuzo</button></div></div>`).join('') : '';
+  const scopes = m ? `<div class="gscope" role="tablist" aria-label="Renditja"><button role="tab" data-gsc="all" aria-selected="${lbScope === 'all'}">${ic('trophy')} Të gjithë</button>${GRP.groups.map(x => `<button role="tab" data-gsc="${x.id}" aria-selected="${lbScope === x.id}">${ic('user')} ${esc(x.name)}</button>`).join('')}<button class="gnew" data-gnew>${ic('plus')} Grup i ri</button></div>` : '';
+  const ghead = g ? `<div class="ghead"><div><b>${esc(g.name)}</b><span>${g.members.length} ${g.members.length === 1 ? 'anëtar' : 'anëtarë'}${g.inv.length ? ` · ${g.inv.length} të ftuar` : ''} · krijuar nga ${esc(g.owner)}${g.owner === meU ? ' (ti)' : ''}</span></div><button class="btn sec sm" data-gman="${g.id}">${ic('gear')} ${g.owner === meU ? 'Menaxho' : 'Grupi'}</button></div>` : '';
+  app.innerHTML = `<section class="band"><div class="wrap lb">
+   <div class="lbh"><h1>Renditja</h1><button class="ib" data-lbr aria-label="Rifresko" title="Rifresko">${ic('repeat')}</button></div>
+   <p class="lead">${g ? 'Gara brenda grupit. Pikët janë XP-ja nga mësimet, testet dhe përsëritja.' : 'Kush mësoi më shumë? Pikët janë XP-ja nga mësimet, testet dhe përsëritja.'}</p>
+   ${invites}${scopes}${ghead}
+   <div class="lbseg" role="tablist">${LBP.map(([k, l]) => `<button role="tab" data-lbp="${k}" aria-selected="${lbP === k}">${l}</button>`).join('')}</div>
+   <p class="lbper">${ic('clock')} ${lbLabel(d) || 'Duke u ngarkuar…'}</p>
+   ${note}${body}
+  </div></section>${mine ? `<div class="lbmew"><div class="wrap">${mine}</div></div>` : ''}`;
+  if (!lbBusy && !LBE && (!d || Date.now() - d.at > 30000)) loadLB();
+  if (m) loadGroups();
+}
+/* dritaret: grup i ri, menaxhimi */
+function openSheet(html) {
+  closeInstall();
+  const w = document.createElement('div');
+  w.className = 'isheet'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-modal', 'true');
+  w.innerHTML = `<div class="ibg" data-instx></div><div class="ipanel">${html}</div>`;
+  document.body.appendChild(w);
+  requestAnimationFrame(() => w.classList.add('on'));
+  const f = w.querySelector('input,textarea'); if (f && matchMedia('(hover:hover)').matches) f.focus();
+}
+const sheetX = `<button class="x" data-instx aria-label="Mbyll">${ic('x')}</button>`;
+function newGroupSheet() {
+  openSheet(`${sheetX}<h2>${ic('user')} Grup i ri</h2><p class="lead">Krijo një grup me shokët dhe garoni me XP: sot, këtë javë, këtë muaj. Secili merr një ftesë dhe vendos vetë nëse hyn; mund të dalë kur të dojë.</p>
+   <form id="gcf" class="gform" novalidate>
+    <label class="fld"><span>Emri i grupit</span><input name="name" maxlength="40" placeholder="p.sh. Klasa e arabishtes" required></label>
+    <label class="fld"><span>Emrat e përdoruesve</span><textarea name="users" rows="3" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="ardit_99, fatime, blerim"></textarea><small class="mut">Ndaji me presje ose hapësirë. Mund të ftosh edhe më vonë.</small></label>
+    <p class="err" role="alert"></p>
+    <button class="btn big full" type="submit">${ic('check')} Krijo grupin</button>
+   </form>`);
+}
+function manageSheet(id) {
+  const g = GRP.groups.find(x => x.id === id), meU = ME() ? ME().u : '';
+  if (!g) return closeInstall();
+  const own = g.owner === meU;
+  const row = (u, pend) => `<li>${lav(u)}<span class="gm"><b>${esc(u)}${u === meU ? ' <small>(ti)</small>' : ''}</b><small>${u === g.owner ? 'krijuesi' : pend ? 'pret të pranojë' : 'anëtar'}</small></span>${own && u !== meU ? `<button class="ib bad" data-grm="${esc(u)}" data-gid="${g.id}" aria-label="${pend ? 'Anulo ftesën' : 'Hiqe nga grupi'}" title="${pend ? 'Anulo ftesën' : 'Hiqe nga grupi'}">${ic('x')}</button>` : ''}</li>`;
+  openSheet(`${sheetX}<h2>${ic('user')} ${esc(g.name)}</h2>
+   ${own ? `<form id="grf" class="gform inline" data-gid="${g.id}" novalidate><label class="fld"><span>Emri i grupit</span><input name="name" maxlength="40" value="${esc(g.name)}"></label><button class="btn sec" type="submit">Ruaje</button></form>` : ''}
+   <h3>Anëtarët (${g.members.length})</h3><ul class="glist">${g.members.map(u => row(u, false)).join('')}</ul>
+   ${g.inv.length ? `<h3>Të ftuar (${g.inv.length})</h3><ul class="glist">${g.inv.map(u => row(u, true)).join('')}</ul>` : ''}
+   ${own ? `<form id="gif" class="gform" data-gid="${g.id}" novalidate><label class="fld"><span>Fto shokë të tjerë</span><textarea name="users" rows="2" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="emrat e përdoruesve, të ndarë me presje"></textarea></label><button class="btn" type="submit">${ic('plus')} Fto</button></form>` : ''}
+   <div class="gdanger">
+    <button class="btn sec" data-gleave="${g.id}">${ic('out')} Dil nga grupi</button>
+    ${own ? `<button class="btn bad" data-gdel="${g.id}">${ic('trash')} Fshi grupin</button>` : ''}
+   </div>
+   <p class="mut sm">${own ? 'Nëse del ti, krijues bëhet anëtari tjetër. Fshirja e heq grupin për të gjithë.' : 'Mund të dalësh kur të duash; progresi yt nuk preket.'}</p>`);
+}
+document.addEventListener('click', async e => {
+  const t = e.target.closest('[data-gsc],[data-gnew],[data-gman],[data-gacc],[data-gdec],[data-grm],[data-gleave],[data-gdel]'); if (!t) return;
+  const ds = t.dataset;
+  if (ds.gsc !== undefined) { lbScope = ds.gsc; LBE = null; sfx('tap'); return rank(); }
+  if (ds.gnew !== undefined) { sfx('tap'); return newGroupSheet(); }
+  if (ds.gman !== undefined) return manageSheet(ds.gman);
+  if (ds.gacc !== undefined) { if (await gAct({ action: 'accept', id: ds.gacc }, t)) { lbScope = ds.gacc; toast(`${ic('check')} Hyre në grup. Suksese në garë!`, 'good'); sfx('ok'); rank(); } return; }
+  if (ds.gdec !== undefined) { if (await gAct({ action: 'decline', id: ds.gdec }, t)) toast('Ftesa u refuzua.'); return; }
+  if (ds.grm !== undefined) { if (!armed(t, 'Hiqe?')) return; if (await gAct({ action: 'remove', id: ds.gid, u: ds.grm })) manageSheet(ds.gid); return; }
+  if (ds.gleave !== undefined) { if (!armed(t, 'Kliko sërish për të dalë')) return; if (await gAct({ action: 'leave', id: ds.gleave }, t)) { closeInstall(); lbScope = 'all'; toast('Dole nga grupi.'); rank(); } return; }
+  if (ds.gdel !== undefined) { if (!armed(t, 'Kliko sërish: fshihet për të gjithë')) return; if (await gAct({ action: 'delete', id: ds.gdel }, t)) { closeInstall(); lbScope = 'all'; toast('Grupi u fshi.'); rank(); } }
+});
+document.addEventListener('submit', async e => {
+  const f = e.target; if (!['gcf', 'gif', 'grf'].includes(f.id)) return;
+  e.preventDefault();
+  const b = f.querySelector('[type=submit]'), err = f.querySelector('.err');
+  if (f.id === 'gcf') {
+    const name = f.name.value.trim();
+    if (name.length < 2) { err.textContent = 'Shkruaj emrin e grupit (së paku 2 shenja).'; return; }
+    const j = await gAct({ action: 'create', name, users: f.users.value }, b);
+    if (j) { closeInstall(); lbScope = j.id; sfx('win'); toast(`${ic('check')} Grupi u krijua${j.added && j.added.length ? '. Ftesat u dërguan te: ' + j.added.map(esc).join(', ') : ''}.${j.warn ? '<br>' + j.warn : ''}`, j.warn ? '' : 'good'); rank(); }
+  }
+  if (f.id === 'gif') { const j = await gAct({ action: 'invite', id: f.dataset.gid, users: f.users.value }, b); if (j) { const ok = j.added && j.added.length ? `${ic('check')} Ftesa u dërgua te: ${j.added.map(esc).join(', ')}` : ''; if (ok || j.warn) toast([ok, j.warn].filter(Boolean).join('<br>'), j.warn ? '' : 'good'); manageSheet(f.dataset.gid); } }
+  if (f.id === 'grf') { if (await gAct({ action: 'rename', id: f.dataset.gid, name: f.name.value }, b)) { toast(`${ic('check')} Emri u ruajt.`, 'good'); manageSheet(f.dataset.gid); } }
+});
+
 /* ---------- PROFILI ---------- */
 const GOALS = [[50, 'Lehtë', 'një përsëritje'], [100, 'Mesatar', 'një mësim'], [200, 'Seriozisht', 'mësim + përsëritje'], [300, 'Intensiv', 'si kampion']];
 function me() {
@@ -566,6 +750,8 @@ function me() {
   app.innerHTML = `<section class="band"><div class="wrap">
    ${m ? `<div class="prof"><div class="av">${esc(m.u[0].toUpperCase())}</div><div class="pi"><h1>${esc(m.u)}</h1><p id="sync" class="sync"></p></div><button class="btn sec sm" data-logout>${ic('out')} Dil</button></div>`
      : `<div class="prof guest"><div class="av">?</div><div class="pi"><h1>Pa llogari</h1><p class="mut">Progresi ruhet vetëm në këtë pajisje. Me llogari e ke kudo.</p></div><div class="row"><button class="btn sm" data-auth="signup">Krijo llogari</button><button class="btn sec sm" data-auth="login">Hyr</button></div></div>`}
+   <h2>Aplikacioni në telefon</h2>
+   ${STANDALONE() ? `<div class="nudge inst">${ic('check')}<div><b>E ke të instaluar</b><span>Po e përdor si aplikacion nga ekrani i telefonit.</span></div></div>` : `<div class="nudge inst">${ic('phone')}<div><b>Shkarkoje në ${IOS ? (IPAD ? 'iPad' : 'iPhone') : 'telefon'}</b><span>Ikonë në ekran, ekran i plotë, punon pa internet. Pa App Store.</span></div><button class="btn sm" data-inst>${ic('dl')} Shkarko</button></div>`}
    <h2>Tema</h2>
    <div class="themes">${THEMES.map(([k, n, d]) => `<button class="tp${(S.theme || 'auto') === k ? ' sel' : ''}" data-theme-pick="${k}" ${k === 'auto' ? '' : `data-theme="${k}"`} aria-pressed="${(S.theme || 'auto') === k}"><span class="pv">${k === 'auto' ? '<span class="half" data-theme="oaz"></span><span class="half" data-theme="mesnate"></span>' : '<span class="h"></span><span class="c"><i></i><i></i></span><span class="b"></span>'}</span><b>${n}</b><small>${d}</small>${(S.theme || 'auto') === k ? `<span class="tick">${ic('check')}</span>` : ''}</button>`).join('')}</div>
    <h2>Qëllimi ditor</h2>
@@ -575,6 +761,7 @@ function me() {
     <label class="sw"><span><b>Tingujt</b><small>Tinguj të lehtë kur përgjigjesh</small></span><input type="checkbox" id="snd"${S.sound ? ' checked' : ''}><i></i></label>
     <label class="sw"><span><b>Transliterimi</b><small>Shqiptimi me shkronja latine te fjalët e reja</small></span><input type="checkbox" id="tr"${S.tr ? ' checked' : ''}><i></i></label>
     <label class="sw"><span><b>Mënyra e lirë</b><small>Hap ditën tjetër pa pritur nesër</small></span><input type="checkbox" id="free"${S.free ? ' checked' : ''}><i></i></label>
+    ${m ? `<label class="sw"><span><b>Shfaqu në renditje</b><small>Emri dhe XP-ja jote duken te Renditja</small></span><input type="checkbox" id="lbon"${S.lb !== false ? ' checked' : ''}><i></i></label>` : ''}
    </div>
    ${m ? `<h2>Llogaria</h2>
    <details class="acc"><summary>Ndrysho fjalëkalimin</summary><form id="pwf" class="mini" novalidate>
@@ -612,7 +799,7 @@ const AR = /[؀-ۿ]/;
 const rows = s => String(s || '').split('\n').map(l => l.split('|').map(x => x.trim())).filter(r => r.some(Boolean));
 const ser = {
   words: ws => ws.map(w => [w[0], w[1], w[2]].filter((x, i) => i < 2 || x).join(' | ')).join('\n'),
-  lines: ls => ls.map(l => [l[0], l[1], l[2]].join(' | ')).join('\n'),
+  lines: ls => ls.map(l => (l[0] ? [l[0], l[1], l[2]] : [l[1], l[2]]).join(' | ')).join('\n'),
   qs: qs => qs.map(q => [q.p].concat(q.o).join(' | ')).join('\n'),
   build: bs => bs.map(b => b[0] + ' | ' + b[1].join(' ')).join('\n'),
   say: ss => ss.map(s => s[0] + ' | ' + s[1]).join('\n'),
@@ -621,7 +808,7 @@ function parseUnit(f) {
   const errs = [], v = n => (f.elements[n] ? f.elements[n].value : '');
   const chk = (name, list, need, fn) => list.map((r, i) => { const x = fn(r); if (!x) errs.push(`${name}, rreshti ${i + 1}: ${need}`); return x; }).filter(Boolean);
   const words = (name, s) => chk(name, rows(s), 'duhet “arabisht | shqip | transliterim”', r => r[0] && r[1] ? [r[0], r[1], r[2] || ''] : null);
-  const lines = (name, s) => chk(name, rows(s), 'duhet “Folësi | arabisht | shqip”', r => r[1] ? [r[0] || '', r[1], r[2] || ''] : null);
+  const lines = (name, s) => chk(name, rows(s), 'duhet “Folësi | arabisht | shqip”', r => r.length === 2 && AR.test(r[0]) && !AR.test(r[1]) ? ['', r[0], r[1]] : r[1] ? [r[0] || '', r[1], r[2] || ''] : null);
   const qs = (name, s) => chk(name, rows(s), 'duhet “pyetja | e sakta | gabim | gabim”', r => { const o = r.slice(1).filter(Boolean); if (!r[0] || o.length < 2) return null; const q = { p: r[0], o }; if (o.every(x => AR.test(x))) q.ar = 1; return q; });
   const u = {
     sq: v('sq').trim(), ar: v('ar').trim(),
@@ -670,6 +857,7 @@ function admin() {
     <div class="adf">
      <label class="fld"><span>Emri i nivelit</span><input data-lf="t" data-li="${li}" value="${esc(l.t)}" maxlength="120"></label>
      <label class="fld"><span>Pragu i testit (%)</span><input data-lf="pass" data-li="${li}" type="number" min="50" max="100" step="5" value="${l.pass}"></label>
+     <label class="fld wide"><span>Sistemi i nivelit</span><select data-lf="m" data-li="${li}">${Object.entries(MODES).map(([k, m]) => `<option value="${k}"${(l.m || 'dialog') === k ? ' selected' : ''}>${esc(m.t)}: ${esc(m.d)}</option>`).join('')}</select></label>
      <label class="fld wide"><span>Përshkrimi (i shfaqet nxënësit)</span><input data-lf="d" data-li="${li}" value="${esc(l.d)}" maxlength="400"></label>
     </div>
     <ol class="adu">${l.units.map((u, k) => `<li>
@@ -690,6 +878,8 @@ function unitEditor() {
   const { li, k } = AE, l = CUR.levels[li];
   if (!l) { AE = null; return admin(); }
   const u = k >= 0 && l.units[k] ? l.units[k] : fixU({ n: 0, sq: '', ar: '' });
+  const md = lvMode(li), DY = MODES[md].days, rd1 = md === 'text', rd2 = md !== 'dialog';
+  const LH = 'Folësi | arabisht | shqip', TH = 'një fjali për rresht: arabisht | shqip';
   const ta = (n, label, val, help, rws, ar) => `<label class="fld"><span>${label}</span>${help ? `<small class="mut">${help}</small>` : ''}<textarea name="${n}" rows="${rws || 6}" spellcheck="false"${ar ? ' class="mixed"' : ''}>${esc(val)}</textarea></label>`;
   const inp = (n, label, val, ar) => `<label class="fld"><span>${label}</span><input name="${n}" value="${esc(val)}"${ar ? ' dir="rtl" class="ar"' : ''}></label>`;
   app.innerHTML = `<section class="band"><div class="wrap adm">
@@ -699,12 +889,12 @@ function unitEditor() {
    <form id="uef" class="uef" novalidate>
     <fieldset><legend>Titulli</legend><div class="adf">${inp('sq', 'Titulli shqip', u.sq)}${inp('ar', 'Titulli arabisht', u.ar, 1)}</div></fieldset>
     <fieldset><legend>Dita 1 · Fjalor i ri</legend>${ta('A', 'Fjalët', ser.words(u.A), 'arabisht | shqip | transliterim', 10)}</fieldset>
-    <fieldset><legend>Dita 2 · Dialogu 1</legend>${inp('D1t', 'Titulli i dialogut', u.D1.t)}${ta('D1l', 'Rreshtat', ser.lines(u.D1.l), 'Folësi | arabisht | shqip', 8)}${ta('D1q', 'Pyetjet e kuptimit', ser.qs(u.D1.q), 'pyetja | përgjigjja e saktë | gabim | gabim | gabim', 5)}</fieldset>
-    <fieldset><legend>Dita 3 · Gramatika</legend>${inp('Gt', 'Titulli i gramatikës', u.G.t)}${ta('Gh', 'Shpjegimi (HTML i thjeshtë)', u.G.h, 'Lejohen: &lt;p&gt; &lt;b&gt; &lt;h3&gt; &lt;table&gt; &lt;tr&gt; &lt;td class="ar"&gt; &lt;span class="ar"&gt; &lt;p class="note"&gt; …', 10)}
+    <fieldset><legend>Dita 2 · ${DY[1]}</legend>${inp('D1t', rd1 ? 'Titulli i tekstit' : 'Titulli i dialogut', u.D1.t)}${ta('D1l', rd1 ? 'Teksti' : 'Rreshtat', ser.lines(u.D1.l), rd1 ? TH : LH, 8)}${ta('D1q', 'Pyetjet e kuptimit', ser.qs(u.D1.q), 'pyetja | përgjigjja e saktë | gabim | gabim | gabim', 5)}</fieldset>
+    <fieldset><legend>Dita 3 · ${DY[2]}</legend>${inp('Gt', 'Titulli i gramatikës', u.G.t)}${ta('Gh', 'Shpjegimi (HTML i thjeshtë)', u.G.h, 'Lejohen: &lt;p&gt; &lt;b&gt; &lt;h3&gt; &lt;table&gt; &lt;tr&gt; &lt;td class="ar"&gt; &lt;span class="ar"&gt; &lt;p class="note"&gt; …', 10)}
      <details class="prev"><summary>Shiko si duket</summary><div class="gram" id="ghp"></div></details>
      ${ta('Gex', 'Ushtrimet', ser.qs(u.G.ex), 'pyetja | përgjigjja e saktë | gabim | gabim | gabim', 6)}</fieldset>
-    <fieldset><legend>Dita 4 · Fjalor + Dialogu 2</legend>${ta('B', 'Fjalët e reja', ser.words(u.B), 'arabisht | shqip | transliterim', 10)}${inp('D2t', 'Titulli i dialogut 2', u.D2.t)}${ta('D2l', 'Rreshtat', ser.lines(u.D2.l), 'Folësi | arabisht | shqip', 8)}${ta('D2q', 'Pyetjet e kuptimit', ser.qs(u.D2.q), 'pyetja | përgjigjja e saktë | gabim | gabim | gabim', 5)}</fieldset>
-    <fieldset><legend>Dita 6 · Fol dhe ndërto</legend>${ta('build', 'Ndërto fjalinë', ser.build(u.build), 'fjalia shqip | fjalët arabisht sipas radhës, të ndara me hapësirë', 5)}${ta('say', 'Thuaje me zë', ser.say(u.say), 'detyra shqip | përgjigjja arabisht', 5)}</fieldset>
+    <fieldset><legend>Dita 4 · ${DY[3]}</legend>${ta('B', 'Fjalët e reja', ser.words(u.B), 'arabisht | shqip | transliterim', 10)}${inp('D2t', rd2 ? 'Titulli i tekstit' : 'Titulli i dialogut 2', u.D2.t)}${ta('D2l', rd2 ? 'Teksti' : 'Rreshtat', ser.lines(u.D2.l), rd2 ? TH : LH, 8)}${ta('D2q', 'Pyetjet e kuptimit', ser.qs(u.D2.q), 'pyetja | përgjigjja e saktë | gabim | gabim | gabim', 5)}</fieldset>
+    <fieldset><legend>Dita 6 · ${DY[5]}</legend>${ta('build', 'Ndërto fjalinë', ser.build(u.build), 'fjalia shqip | fjalët arabisht sipas radhës, të ndara me hapësirë', 5)}${ta('say', 'Thuaje me zë', ser.say(u.say), 'detyra shqip | përgjigjja arabisht', 5)}</fieldset>
     <p class="mut sm">Dita 5 (përsëritje e përzier) dhe dita 7 (testi i javës) krijohen vetë nga përmbajtja më lart. Testi i nivelit merr pyetje nga të gjitha njësitë e nivelit.</p>
     <p class="err" role="alert"></p>
     <div class="row sticky"><button class="btn" type="submit">${ic('check')} Ruaje njësinë</button><button class="btn sec" type="button" data-a="cancel">Anulo</button></div>
@@ -727,7 +917,7 @@ async function adminAct(a, t) {
     return admin();
   }
   const c = clone(CUR), L0 = c.levels[li];
-  if (a === 'addlv') c.levels.push({ id: nextLvId(c), t: 'Nivel i ri', d: '', pass: PASS, units: [] });
+  if (a === 'addlv') c.levels.push({ id: nextLvId(c), t: 'Nivel i ri', d: '', pass: PASS, m: 'dialog', units: [] });
   else if (a === 'lvup' || a === 'lvdn') { const j = a === 'lvup' ? li - 1 : li + 1; if (!c.levels[j]) return; [c.levels[li], c.levels[j]] = [c.levels[j], c.levels[li]]; }
   else if (a === 'dellv') {
     if (c.levels.length < 2) return toast('Programi duhet të ketë së paku një nivel.');
@@ -741,6 +931,76 @@ async function adminAct(a, t) {
   } else return;
   if (await publish(c, t)) admin();
 }
+
+/* ---------- INSTALIMI NË TELEFON (iPhone/iPad, Android) ---------- */
+const UA = navigator.userAgent;
+const IOS = /iPad|iPhone|iPod/.test(UA) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const IPAD = IOS && !/iPhone|iPod/.test(UA);
+const ANDROID = /Android/i.test(UA);
+const INAPP = /FBAN|FBAV|FB_IAB|Instagram|Line\/|Snapchat|TikTok|musical_ly|Messenger|GSA\//i.test(UA);
+const IOS_OTHER = IOS && /CriOS|FxiOS|EdgiOS|OPiOS/.test(UA);
+const STANDALONE = () => { try { return matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; } catch (e) { return false; } };
+const IXKEY = 'bayna-inst-x';
+let BIP = null;
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); BIP = e; if (tab === 'home' || tab === 'me') refresh(); });
+addEventListener('appinstalled', () => { BIP = null; closeInstall(); toast(`${ic('check')} Aplikacioni u instalua. Gjeje te ekrani i telefonit.`, 'good'); refresh(); });
+const showBanner = () => {
+  if (STANDALONE() || !(IOS || ANDROID || BIP)) return false;
+  let x = 0; try { x = +localStorage.getItem(IXKEY) || 0; } catch (e) {}
+  return Date.now() - x > 14 * 864e5;
+};
+const installBanner = () => showBanner() ? `<div class="nudge inst">${ic('phone')}<div><b>Shkarkoje në ${IOS ? (IPAD ? 'iPad' : 'iPhone') : 'telefon'}</b><span>Me një ikonë në ekran: hapet menjëherë, në ekran të plotë dhe pa internet.</span></div><div class="row"><button class="btn sm" data-inst>${ic('dl')} Shkarko</button><button class="ib" data-instno aria-label="Jo tani" title="Jo tani">${ic('x')}</button></div></div>` : '';
+const step = (n, h) => `<li><span class="stn">${n}</span><div>${h}</div></li>`;
+const kb = (icon, label) => `<span class="kbd">${icon ? ic(icon) : ''}${label}</span>`;
+function installBody() {
+  const me = ME(), link = location.origin + '/';
+  const acc = me ? `<p class="inote">${ic('user')} Kur ta hapësh nga ikona, hyr me emrin <b>${esc(me.u)}</b> dhe fjalëkalimin. Progresi të pret aty.</p>`
+    : IOS ? `<p class="inote warn">${ic('cloud')} <span><b>Krijo llogari para se ta instalosh.</b> Në iPhone, aplikacioni nga ekrani nuk e sheh progresin e ruajtur në Safari. Me llogari, thjesht hyn dhe vazhdon aty ku e le.</span></p>` : '';
+  const copy = `<div class="row ic2"><button class="btn sec sm" data-copy="${esc(link)}">${ic('link')} Kopjo linkun</button></div>`;
+  if (STANDALONE()) return `<h2>${ic('check')} E ke të instaluar</h2><p class="lead">Po e përdor tashmë si aplikacion. Ikona «Arabisht» është në ekranin e telefonit.</p>`;
+  if (BIP && !IOS) return `<h2>Shkarkoje me një prekje</h2><p class="lead">Instalohet si aplikacion, pa Play Store dhe pa zënë vend. Hapet nga ikona në ekran dhe punon pa internet.</p>
+    <button class="btn big full" data-instgo>${ic('dl')} Instalo tani</button>${acc}`;
+  if (IOS && INAPP) return `<h2>Hape në Safari</h2><p class="lead">Je brenda një aplikacioni tjetër (Instagram, Facebook…). Nga këtu iPhone nuk lejon shtimin në ekran.</p>
+    <ol class="steps">${step(1, `Prek ${kb('dots', '')} ose ${kb('', 'Aa')} lart/poshtë dhe zgjidh ${kb('compass', 'Open in Safari')}.`)}${step(2, 'Ose kopjo linkun dhe ngjite te Safari.')}</ol>${copy}`;
+  if (IOS && IOS_OTHER) return `<h2>Shtoje në ekranin e ${IPAD ? 'iPad-it' : 'iPhone-it'}</h2>
+    <ol class="steps">${step(1, `Prek ${kb('share', 'Ndaj')} te shiriti i adresës (lart djathtas).`)}${step(2, `Zgjidh ${kb('addsq', 'Add to Home Screen')} («Shto në ekranin bazë»).`)}${step(3, `Prek ${kb('', 'Add')} («Shto»).`)}</ol>
+    <p class="mut sm">S'e gjen? Hape faqen në Safari dhe ndiq hapat atje.</p>${copy}${acc}`;
+  if (IOS) return `<h2>Shtoje në ekranin e ${IPAD ? 'iPad-it' : 'iPhone-it'}</h2><p class="lead">Tri prekje, pa App Store. Pastaj e hap si çdo aplikacion tjetër.</p>
+    <ol class="steps">
+     ${step(1, `Prek butonin ${kb('share', 'Ndaj')} ${IPAD ? 'lart djathtas' : 'poshtë në mes'}.<small>Në iOS 26: prek ${kb('dots', '')} poshtë djathtas, pastaj ${kb('share', 'Share')}.</small>`)}
+     ${step(2, `Rrëshqit poshtë dhe prek ${kb('addsq', 'Add to Home Screen')}<small>(«Shto në ekranin bazë»). Nëse nuk duket, prek «View More» / «Më shumë».</small>`)}
+     ${step(3, `Lëre të ndezur «Open as Web App» dhe prek ${kb('', 'Add')} lart djathtas.`)}
+    </ol>
+    <p class="mut sm">${ic('check')} Ikona «Arabisht» del në ekran. Hapet në ekran të plotë dhe punon edhe pa internet.</p>${acc}`;
+  if (ANDROID) return `<h2>Shkarkoje në telefon</h2>
+    <ol class="steps">${step(1, `Prek ${kb('dots', '')} lart djathtas te Chrome.`)}${step(2, `Zgjidh ${kb('dl', 'Instalo aplikacionin')} ose ${kb('addsq', 'Shto në ekranin kryesor')}.`)}${step(3, 'Konfirmo. Ikona del në ekran.')}</ol>${acc}`;
+  return `<h2>Shkarkoje në telefon</h2><p class="lead">Hape këtë faqe në telefon (Safari në iPhone, Chrome në Android) dhe shtyp «Shkarko».</p>
+    <div class="ilink">${esc(link)}</div>${copy}`;
+}
+function installSheet() {
+  closeInstall();
+  const w = document.createElement('div');
+  w.className = 'isheet'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-modal', 'true'); w.setAttribute('aria-label', 'Shkarko aplikacionin');
+  w.innerHTML = `<div class="ibg" data-instx></div><div class="ipanel"><button class="x" data-instx aria-label="Mbyll">${ic('x')}</button>
+    <div class="iapp"><img src="/icons/apple-touch-icon.png" alt="" width="64" height="64"><div><b>Arabisht</b><span>Mëso arabisht nga shqipja · falas</span></div></div>
+    ${installBody()}
+    ${navigator.share ? `<button class="link ishare" data-ishare>${ic('share')} Dërgoja një shoku</button>` : ''}</div>`;
+  document.body.appendChild(w);
+  requestAnimationFrame(() => w.classList.add('on'));
+  const b = w.querySelector('[data-instgo]') || w.querySelector('.x'); if (b) b.focus({ preventScroll: true });
+}
+function closeInstall() { const w = document.querySelector('.isheet'); if (w) w.remove(); if (location.hash === '#install') try { history.replaceState(null, '', location.pathname); } catch (e) {} }
+document.addEventListener('click', async e => {
+  const t = e.target.closest('[data-inst],[data-instx],[data-instgo],[data-instno],[data-copy],[data-ishare]'); if (!t) return;
+  const ds = t.dataset;
+  if (ds.inst !== undefined) { sfx('tap'); return installSheet(); }
+  if (ds.instx !== undefined) return closeInstall();
+  if (ds.instno !== undefined) { try { localStorage.setItem(IXKEY, String(Date.now())); } catch (x) {} const n = t.closest('.band'); if (n) n.remove(); return; }
+  if (ds.instgo !== undefined && BIP) { const p = BIP; BIP = null; p.prompt(); try { await p.userChoice; } catch (x) {} closeInstall(); return refresh(); }
+  if (ds.copy !== undefined) { try { await navigator.clipboard.writeText(ds.copy); toast(`${ic('check')} Linku u kopjua. Ngjite te Safari.`, 'good'); } catch (x) { prompt('Kopjo linkun:', ds.copy); } return; }
+  if (ds.ishare !== undefined) { try { await navigator.share({ title: 'Mëso Arabisht', text: 'Mëso arabisht nga shqipja, 15 minuta në ditë. Falas.', url: location.origin + '/#install' }); } catch (x) {} }
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.querySelector('.isheet')) { e.stopImmediatePropagation(); closeInstall(); } }, true);
 
 /* ---------- MËSIMI ---------- */
 let L = null, Q = null, R = null;
@@ -765,11 +1025,12 @@ function startLevelTest(li) {
 const bar = (frac, label, combo) => `<div class="lbar"><div class="lrow"><button class="x" data-quit aria-label="Mbyll mësimin">${ic('x')}</button><div class="prog" role="progressbar" aria-label="${esc(label)}" aria-valuenow="${Math.round(frac * 100)}" aria-valuemin="0" aria-valuemax="100"><b style="width:${Math.max(3, Math.round(frac * 100))}%"></b></div><span class="combo${combo >= 2 ? ' on' : ''}">${ic('flame')}${combo || 0}</span></div><div class="llab">${esc(label)}</div></div>`;
 function renderStep() {
   if (L.s >= L.st.length) return complete();
-  const st = L.st[L.s], d = DAYS[L.i], lab = L.lv !== undefined ? 'Testi i ' + lvGen(L.lv) : lvName(UL[d.ui]) + ' · Njësia ' + (d.ui + 1) + ' · ' + DN[d.di];
+  const st = L.st[L.s], d = DAYS[L.i], lab = L.lv !== undefined ? 'Testi i ' + lvGen(L.lv) : lvName(UL[d.ui]) + ' · Njësia ' + (d.ui + 1) + ' · ' + dname(d.ui, d.di);
   if (st.k === 'quiz') { Q = { items: st.q.slice(), n: 0, total: st.q.length, ok: 0, test: !!st.test, lab, combo: 0 }; renderQ(); return; }
   let h = '';
-  if (st.k === 'cards') h = `<h2>Fjalët e reja</h2><p class="lead">Prek secilën kartë për ta dëgjuar. Thuaje me zë dy herë dhe lidhe me një situatë nga jeta jote.</p><div class="cards">${st.w.map((w, j) => `<button class="card" style="--i:${j}" data-say="${esc(w[0])}"><span class="ar">${esc(w[0])}</span>${S.tr ? `<span class="tr">${esc(w[2])}</span>` : ''}<span class="sq">${esc(w[1])}</span><span class="spk">${ic('sound')}</span></button>`).join('')}</div>`;
+  if (st.k === 'cards') h = `<h2>Fjalët e reja</h2><p class="lead">Prek secilën kartë për ta dëgjuar. Thuaje me zë dy herë dhe lidhe me një situatë nga jeta jote.</p><div class="cards">${st.w.map((w, j) => `<button class="card" style="--i:${j}" data-say="${esc(w[0])}"><span class="ar">${esc(w[0])}</span>${S.tr && MODES[uMode(d.ui)].tr && w[2] ? `<span class="tr">${esc(w[2])}</span>` : ''}<span class="sq">${esc(w[1])}</span><span class="spk">${ic('sound')}</span></button>`).join('')}</div>`;
   if (st.k === 'dialog') { L.lines = st.d.l.map(l => l[1]); h = `<h2>${esc(st.d.t)}</h2><p class="lead">1) Dëgjoje të gjithin pa përkthim. 2) Prek çdo rresht për përkthimin. 3) Lexoje me zë, duke luajtur njërin nga personat.</p><div class="row"><button class="btn sec" data-all>${ic('play')} Dëgjo dialogun</button><button class="btn sec" data-showall>${ic('eye')} Shfaq përkthimet</button></div><div class="dl">${st.d.l.map((l, j) => `<div class="line ${j % 2 ? 'r' : ''}" style="--i:${j}"><span class="who">${esc(l[0])}</span><div class="bub"><div class="ar" data-tog>${esc(l[1])}</div><div class="sq">${esc(l[2])}</div></div><button class="play" data-say="${esc(l[1])}" aria-label="Dëgjo">${ic('sound')}</button></div>`).join('')}</div>`; }
+  if (st.k === 'read') { L.lines = [st.d.l.map(l => l[1]).join(' ')]; h = `<h2>${esc(st.d.t)}</h2><p class="lead">1) Dëgjoje tekstin. 2) Lexoje me zë, fjali pas fjalie. 3) Prek një fjali që nuk e kupton për ta parë përkthimin.</p><div class="row"><button class="btn sec" data-all>${ic('play')} Dëgjo tekstin</button><button class="btn sec" data-showall>${ic('eye')} Shfaq përkthimet</button></div><div class="rtext">${st.d.l.map((l, j) => `<div class="line" style="--i:${j}">${l[0] ? `<span class="who">${esc(l[0])}</span>` : ''}<span class="ar" data-tog>${esc(l[1])}</span> <span class="sq">${esc(l[2])}</span></div>`).join('')}</div>`; }
   if (st.k === 'gram') h = `<h2>${esc(st.g.t)}</h2><p class="lead">Lexoje ngadalë. Mbulo kolonën shqip dhe provo t'i kujtosh kuptimet. Pastaj vijnë ushtrimet.</p><div class="gram">${safeHTML(st.g.h)}</div>`;
   if (st.k === 'intro') h = st.h;
   app.innerHTML = bar(L.s / L.st.length, lab, 0) + `<section class="band lesson"><div class="wrap">${h}</div></section><div class="dock"><div class="din"><button class="btn big full" data-next>${st.k === 'intro' ? 'Fillo testin' : 'Vazhdo'}</button></div></div>`;
@@ -920,6 +1181,13 @@ app.addEventListener('click', e => {
   if (ds.tog !== undefined) { t.closest('.line').classList.toggle('open'); return; }
   if (ds.showall !== undefined) { app.querySelectorAll('.line').forEach(l => l.classList.add('open')); return; }
   if (ds.a !== undefined) return adminAct(ds.a, t);
+  if (ds.lbp !== undefined) { lbP = ds.lbp; LBE = null; sfx('tap'); return rank(); }
+  if (ds.lbr !== undefined) { LBE = null; delete LBC[lbP]; rank(); return loadLB(true); }
+  if (ds.lbon !== undefined) { S.lb = true; save(); LBC = {}; LBE = null; toast(`${ic('check')} Tani duksh në renditje.`, 'good'); return rank(); }
+  if (ds.lbhide !== undefined) {
+    if (!armed(t, 'Hiqe?')) return;
+    return api('leaderboard', { method: 'POST', body: { action: 'hide', u: ds.lbhide } }).then(() => { toast('U hoq nga renditja.'); LBC = {}; rank(); }).catch(x => toast(esc(x.message)));
+  }
   if (ds.go !== undefined) return startLesson(+ds.go);
   if (ds.lvt !== undefined) return startLevelTest(+ds.lvt);
   if (ds.home !== undefined) return setTab('home');
@@ -1024,6 +1292,7 @@ app.addEventListener('change', async e => {
   }
   if (id === 'tr') { S.tr = e.target.checked; save(); }
   if (id === 'free') { S.free = e.target.checked; save(); }
+  if (id === 'lbon') { S.lb = e.target.checked; save(); LBC = {}; buzz(8); }
   if (id === 'snd') { S.sound = e.target.checked; save(); sfx('ok'); }
   if (id === 'tr' || id === 'free' || id === 'snd') buzz(8);
 });
@@ -1040,9 +1309,10 @@ document.addEventListener('keydown', e => {
 applyTheme();
 const h0 = location.hash.slice(1);
 setTab(VIEWS[h0] ? h0 : 'home');
+if (h0 === 'install') installSheet();
 fetchCur();
 if (ME()) pull();
-addEventListener('hashchange', () => { const h = location.hash.slice(1); if (VIEWS[h] && h !== tab && !document.body.classList.contains('inlesson')) setTab(h); });
+addEventListener('hashchange', () => { const h = location.hash.slice(1); if (h === 'install') return installSheet(); if (VIEWS[h] && h !== tab && !document.body.classList.contains('inlesson')) setTab(h); });
 setInterval(() => { if (tab === 'me') paintSync(); }, 30000);
 if ('serviceWorker' in navigator && location.protocol === 'https:') addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
 })();

@@ -1,6 +1,6 @@
 /* POST /api/auth  {action: signup|login|logout|password|delete, username, password, newPassword} */
 'use strict';
-const { db, isAdmin, hashPw, checkPw, newSession, auth, bearer, th, body, send, ip, wrap } = require('./_lib');
+const { db, isAdmin, lbRemove, hashPw, checkPw, newSession, auth, bearer, th, body, send, ip, wrap } = require('./_lib');
 
 const UN = /^[a-z0-9_.]{3,20}$/;
 const UN_MSG = 'Emri: 3–20 shenja, vetëm shkronja latine (pa ë/ç), numra, _ ose pikë.';
@@ -57,6 +57,7 @@ module.exports = wrap(async (req, res) => {
 
   if (a === 'delete') {
     await db.del('user:' + me, 'prog:' + me, 'sess:' + th(bearer(req)));
+    try { await lbRemove(me, true); await require('./_groups').purgeUser(me); } catch (e) { console.error(e); }
     return send(res, 200, { ok: true });
   }
 

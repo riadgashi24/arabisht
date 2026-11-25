@@ -4,13 +4,17 @@ Platformë falas për të mësuar arabisht nga shqipja, sipas rrugës së librit
 
 - **Llogari me emër dhe fjalëkalim.** Progresi ruhet në server dhe sinkronizohet vetë në çdo pajisje. Pa email, pa kode, pa skedarë JSON. Kush nuk do llogari mund të vazhdojë pa të (progresi mbetet në pajisje dhe kalon në llogari kur ta krijojë).
 - **Motivim:** seri ditësh me flakë, ngrirje që e mbrojnë serinë (fitohet një çdo 7 ditë, maksimumi 2), XP, qëllim ditor, 13 medalje, kalendar dhe grafik javor.
+- **Renditja:** Sot, Java (e hënë–e diel), Muaji dhe Gjithsej, sipas XP-së. Podium për 3 të parët, top 50 dhe vendi yt. Kush nuk do të duket e çaktivizon te Profili. XP-ja numërohet deri në 3000 në ditë; administratori mund të heqë nga renditja kë mashtron. Llogaritet sipas orës së Kosovës (`APP_TZ`, parazgjedhur `Europe/Belgrade`).
+- **Grupet:** te Renditja → “Grup i ri”: emri i grupit dhe emrat e shokëve. Secili merr ftesë dhe e pranon ose e refuzon; mund të dalë kur të dojë. Grupi ka renditjen e vet (sot, java, muaji, gjithsej). Krijuesi fton, heq anëtarë, e riemërton ose e fshin. Deri në 50 anëtarë për grup dhe 20 grupe për përdorues.
 - **5 tema:** Oaza, Shkretëtira, Trëndafili, Smeraldi, Mesnata, plus Automatike (sipas telefonit).
 - **UI:** panel përgjigjeje që del nga poshtë, tinguj (të sintetizuar, pa skedarë), dridhje në telefon, konfeti, karta përsëritjeje që kthehen, seri përgjigjesh të sakta (combo), shirit navigimi poshtë në telefon.
-- **Nivele (1, 2, 3, 4 …):** çdo nivel ka njësitë e veta dhe mbyllet me **testin e nivelit** (pragu vendoset nga administratori, parazgjedhur 80%). Kur e kalon, hapet niveli tjetër. Kush di më shumë shtyp **“Kalo me test”** dhe, nëse e kalon, fillon direkt nga niveli tjetër.
+- **4 nivele = 4 librat e serisë**, me nga 16 njësi sipas temave të librave. Niveli 1 (16 njësi) është i plotë; nivelet 2–4 i mbush administratori.
+- **Sistemi ndryshon me nivelin:** Niveli 1 me dialogë dhe transliterim; Niveli 2 me dialog + tekst leximi; Nivelet 3–4 me tekste, nahv dhe shprehje, pa transliterim (te paneli: “Sistemi i nivelit”).
+- **Nivelet me test:** çdo nivel ka njësitë e veta dhe mbyllet me **testin e nivelit** (pragu vendoset nga administratori, parazgjedhur 80%). Kur e kalon, hapet niveli tjetër. Kush di më shumë shtyp **“Kalo me test”** dhe, nëse e kalon, fillon direkt nga niveli tjetër.
 - **Paneli i administratorit:** shton, riemërton, rendit dhe fshin nivelet; shton, ndryshon, zhvendos dhe fshin njësitë (fjalor, dialogë, gramatikë, ushtrime); shkarkon/ngarkon programin si JSON. Ndryshimet ruhen në server dhe nxënësit i shohin menjëherë.
 - Çdo njësi × 7 ditë: fjalor, dialogu 1, gramatika, fjalor + dialogu 2, përsëritje e përzier, fol dhe ndërto, testi i javës (80% për ta kaluar).
 - Përsëritje me intervale (1, 2, 4, 7, 15, 30, 60 ditë), zë arabisht në pajisje, fjalor me kërkim.
-- PWA: instalohet në telefon dhe punon pa internet (sinkronizohet kur kthehet lidhja).
+- PWA: instalohet në telefon dhe punon pa internet (sinkronizohet kur kthehet lidhja). Butoni **“Shkarko”** (kryefaqja, Profili, faqja e hyrjes) tregon hapat për iPhone/iPad (Safari, Chrome, Instagram/Facebook) dhe në Android instalon me një prekje. Linku `/#install` hap drejtpërdrejt udhëzuesin, i mirë për t’ua dërguar të tjerëve.
 
 > Dialogët dhe ushtrimet janë shkruar posaçërisht për këtë platformë sipas temave të librit. Nuk janë kopje e tekstit të librit, i cili ka të drejta autori.
 
@@ -40,13 +44,13 @@ Shërben faqen dhe API-në. Llogaritë ruhen te `.data/db.json` (vetëm për pro
 ## Shtimi i njësive të reja
 Mënyra më e lehtë: **paneli Admin** në aplikacion. Aty çdo fushë shkruhet një element për rresht, me fushat të ndara me `|` (p.sh. `كِتَابٌ | Libër | kitābun`).
 
-Programi parazgjedhur (kur administratori s'ka ruajtur ende asgjë, ose pas “Rikthe parazgjedhjen”) është te `assets/data.js`: `window.LEVELS` jep nivelet (`id`, `t` emri, `d` përshkrimi, `pass` pragu, `units` numrat e njësive), `window.UNITS` njësitë. Çdo njësi është një objekt:
+Programi parazgjedhur (kur administratori s'ka ruajtur ende asgjë, ose pas “Rikthe parazgjedhjen”) është te `assets/data.js`: `window.LEVELS` jep nivelet (`id`, `t` emri, `d` përshkrimi, `pass` pragu, `m` sistemi: `dialog` / `read` / `text`, `units` numrat e njësive), `window.UNITS` njësitë. Çdo njësi është një objekt:
 
 | Fusha | Çka përmban |
 |---|---|
 | `n, ar, sq` | numri, titulli arabisht, titulli shqip |
 | `A`, `B` | fjalori i ditës 1 dhe i ditës 4: `['arabisht me harakat','shqip','transliterim']` |
-| `D1`, `D2` | dialogët: `t` titulli, `l` rreshtat `[folësi, arabisht, shqip]`, `q` pyetjet |
+| `D1`, `D2` | dialogët ose tekstet e leximit: `t` titulli, `l` rreshtat `[folësi, arabisht, shqip]` (te teksti folësi është bosh), `q` pyetjet |
 | `G` | gramatika: `t` titulli, `h` shpjegimi (HTML), `ex` ushtrimet |
 | `build` | fjali për t'u ndërtuar: `['shqip', ['fjala1','fjala2',…]]` |
 | `say` | ushtrime të foluri: `['detyra shqip','përgjigjja arabisht']` |
@@ -64,6 +68,8 @@ assets/data.js        programi parazgjedhur: nivelet dhe njësitë
 api/auth.js           regjistrimi, hyrja, dalja, fjalëkalimi, fshirja
 api/progress.js       leximi / ruajtja e progresit (me bashkim)
 api/curriculum.js     programi mësimor: lexohet nga të gjithë, ndryshohet vetëm nga administratori
+api/leaderboard.js    renditja (sot, java, muaji, gjithsej) dhe renditja e grupit
+api/groups.js         grupet: krijimi, ftesat, pranimi, dalja, menaxhimi (logjika te api/_groups.js)
 api/_lib.js           ruajtja (Upstash Redis ose skedar lokal), fjalëkalimet, seancat
 dev-server.js         server për provë lokale
 sw.js                 puna pa internet

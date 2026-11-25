@@ -1,6 +1,6 @@
 /* Punon edhe pa internet pasi hapet një herë. Ndrysho VERSION kur publikon përmbajtje të re. */
-const VERSION='arabisht-v3';
-const CORE=['/','/index.html','/assets/style.css','/assets/app.js','/assets/data.js','/manifest.webmanifest','/icons/icon.svg','/icons/icon-192.png','/icons/icon-512.png'];
+const VERSION='arabisht-v7';
+const CORE=['/','/index.html','/assets/style.css','/assets/app.js','/assets/data.js','/manifest.webmanifest','/icons/icon.svg','/icons/icon-192.png','/icons/icon-512.png','/icons/apple-touch-icon.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(VERSION).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==VERSION).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
 self.addEventListener('fetch',e=>{
