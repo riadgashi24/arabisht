@@ -40,6 +40,8 @@ const db = HAS_REDIS ? {
   zrem: (k, ...m) => redis(['ZREM', k, ...m]),
   zcard: k => redis(['ZCARD', k]),
   ztop: async (k, n) => { const r = (await redis(['ZREVRANGE', k, '0', String(n - 1), 'WITHSCORES'])) || [], o = []; for (let i = 0; i < r.length; i += 2) o.push([r[i], +r[i + 1]]); return o; },
+  zall: async k => { const r = (await redis(['ZRANGE', k, '0', '-1', 'WITHSCORES'])) || [], o = []; for (let i = 0; i < r.length; i += 2) o.push([r[i], +r[i + 1]]); return o; },
+  scan: async pre => { const o = []; let c = '0'; do { const r = await redis(['SCAN', c, 'MATCH', pre + '*', 'COUNT', '500']); c = String(r[0]); o.push(...r[1]); } while (c !== '0'); return o; },
   zme: async (k, m) => { const r = await redis(['ZREVRANK', k, m]); if (r === null || r === undefined) return null; return { rank: +r + 1, score: +(await redis(['ZSCORE', k, m])) }; },
 } : {
   get: async k => { const e = live(k); return e ? e.v : null; },
@@ -52,6 +54,8 @@ const db = HAS_REDIS ? {
   zrem: async (k, ...ms) => { const e = live(k); if (e && typeof e.v === 'object') { ms.forEach(m => delete e.v[m]); fsave(); } },
   zcard: async k => { const e = live(k); return e && typeof e.v === 'object' ? Object.keys(e.v).length : 0; },
   ztop: async (k, n) => { const e = live(k); return e && typeof e.v === 'object' ? Object.entries(e.v).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? 1 : -1)).slice(0, n) : []; },
+  zall: async k => { const e = live(k); return e && typeof e.v === 'object' ? Object.entries(e.v) : []; },
+  scan: async pre => Object.keys(fload()).filter(k => k.startsWith(pre) && live(k)),
   zme: async (k, m) => { const e = live(k); if (!e || typeof e.v !== 'object' || !(m in e.v)) return null; const sc = e.v[m]; return { rank: 1 + Object.entries(e.v).filter(([x, v]) => v > sc || (v === sc && x > m)).length, score: sc }; },
 };
 
@@ -68,17 +72,39 @@ async function checkPw(p, stored) {
 /* seancat: token i rastësishëm, në databazë ruhet vetëm hash-i i tij */
 const SESS_TTL = 60 * 60 * 24 * 180;
 const th = t => crypto.createHash('sha256').update(t).digest('hex');
-async function newSession(u) { const t = crypto.randomBytes(32).toString('base64url'); await db.set('sess:' + th(t), u, { ex: SESS_TTL }); return t; }
+/* vlera e seancës: "emri|koha e krijimit"; administratori mund t'i mbyllë të gjitha seancat e një përdoruesi (rec.rv) */
+async function newSession(u) { const t = crypto.randomBytes(32).toString('base64url'); await db.set('sess:' + th(t), u + '|' + Date.now(), { ex: SESS_TTL }); return t; }
 const bearer = req => { const h = String(req.headers.authorization || ''); return h.startsWith('Bearer ') ? h.slice(7).trim() : ''; };
 async function auth(req) {
   const t = bearer(req); if (!t || t.length > 100) return null;
-  const u = await db.get('sess:' + th(t)); if (!u) return null;
-  return (await db.get('user:' + u)) ? u : null;
+  const v = await db.get('sess:' + th(t)); if (!v) return null;
+  const [u, ts] = String(v).split('|'), r = await db.get('user:' + u); if (!r) return null;
+  let rec = {}; try { rec = JSON.parse(r) || {}; } catch (e) {}
+  if (rec.dis || (rec.rv && (+ts || 0) < rec.rv)) return null;
+  return u;
 }
 
 /* administratorët: emrat te variabla ADMIN_USERS (p.sh. "riad,ardit") */
 const ADMINS = String(process.env.ADMIN_USERS || '').toLowerCase().split(/[\s,;]+/).filter(Boolean);
-const isAdmin = u => !!u && ADMINS.includes(String(u).toLowerCase());
+const isAdmin = u => !!u && ADMINS.includes(String(u).toLowerCase());   /* administrator kryesor (nga Vercel) */
+/* administrator: nga ADMIN_USERS ose i caktuar nga një administrator kryesor (rec.a) */
+async function adminOf(u) {
+  if (!u) return false; if (isAdmin(u)) return true;
+  try { return !!JSON.parse(await db.get('user:' + u)).a; } catch (e) { return false; }
+}
+/* lista e përdoruesve (sorted set "users", pikët = koha e krijimit); llogaritë e vjetra shtohen një herë me SCAN */
+const UIDX = 'users';
+const userIdxAdd = (u, c) => db.zadd(UIDX, c || Date.now(), u);
+const userIdxDel = u => db.zrem(UIDX, u);
+async function userIdxAll() {
+  if (!(await db.get('users:idx:v1'))) {
+    const ks = await db.scan('user:'), us = ks.map(k => k.slice(5)).filter(u => /^[a-z0-9_.]{3,20}$/.test(u));
+    const recs = await db.mget(us.map(u => 'user:' + u));
+    for (let i = 0; i < us.length; i++) { let c = 0; try { c = +JSON.parse(recs[i]).c || 0; } catch (e) {} await userIdxAdd(us[i], c || 1); }
+    await db.set('users:idx:v1', '1');
+  }
+  return db.zall(UIDX);
+}
 
 /* bashkimi i dy gjendjeve (dy pajisje): asgjë nuk humbet */
 const obj = x => x && typeof x === 'object' && !Array.isArray(x) ? x : {};
@@ -174,4 +200,4 @@ const wrap = fn => async (req, res) => {
   }
 };
 
-module.exports = { db, isAdmin, periods, LBK, lbUpdate, lbRemove, lbPick, hashPw, checkPw, newSession, auth, bearer, th, mergeState, body, send, ip, wrap };
+module.exports = { db, isAdmin, adminOf, userIdxAdd, userIdxDel, userIdxAll, periods, LBK, lbUpdate, lbRemove, lbPick, hashPw, checkPw, newSession, auth, bearer, th, mergeState, body, send, ip, wrap };

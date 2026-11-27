@@ -1,6 +1,6 @@
 /* POST /api/auth  {action: signup|login|logout|password|delete, username, password, newPassword} */
 'use strict';
-const { db, isAdmin, lbRemove, hashPw, checkPw, newSession, auth, bearer, th, body, send, ip, wrap } = require('./_lib');
+const { db, adminOf, userIdxAdd, userIdxDel, lbRemove, hashPw, checkPw, newSession, auth, bearer, th, body, send, ip, wrap } = require('./_lib');
 
 const UN = /^[a-z0-9_.]{3,20}$/;
 const UN_MSG = 'Emri: 3–20 shenja, vetëm shkronja latine (pa ë/ç), numra, _ ose pikë.';
@@ -22,7 +22,8 @@ module.exports = wrap(async (req, res) => {
     if ((await db.incr('rls:' + ip(req), 3600)) > 20) return send(res, 429, { error: 'Shumë llogari nga kjo lidhje. Provo më vonë.' });
     const rec = JSON.stringify({ h: await hashPw(p), c: Date.now() });
     if (!(await db.set('user:' + u, rec, { nx: true }))) return send(res, 409, { error: 'Ky emër është i zënë. Provo një tjetër.' });
-    return send(res, 200, { username: u, token: await newSession(u), data: null, admin: isAdmin(u) });
+    try { await userIdxAdd(u); } catch (e) { console.error(e); }
+    return send(res, 200, { username: u, token: await newSession(u), data: null, admin: await adminOf(u) });
   }
 
   if (a === 'login') {
@@ -30,8 +31,9 @@ module.exports = wrap(async (req, res) => {
     const rec = await db.get('user:' + u);
     if (!rec || !(await checkPw(p, JSON.parse(rec).h))) return send(res, 401, { error: 'Emri ose fjalëkalimi është gabim.' });
     await db.del('rl:' + u);
+    if (JSON.parse(rec).dis) return send(res, 403, { error: 'Kjo llogari është bllokuar nga administratori.' });
     const d = await db.get('prog:' + u);
-    return send(res, 200, { username: u, token: await newSession(u), data: d ? JSON.parse(d) : null, admin: isAdmin(u) });
+    return send(res, 200, { username: u, token: await newSession(u), data: d ? JSON.parse(d) : null, admin: await adminOf(u) });
   }
 
   if (a === 'logout') {
@@ -57,7 +59,7 @@ module.exports = wrap(async (req, res) => {
 
   if (a === 'delete') {
     await db.del('user:' + me, 'prog:' + me, 'sess:' + th(bearer(req)));
-    try { await lbRemove(me, true); await require('./_groups').purgeUser(me); } catch (e) { console.error(e); }
+    try { await userIdxDel(me); await lbRemove(me, true); await require('./_groups').purgeUser(me); } catch (e) { console.error(e); }
     return send(res, 200, { ok: true });
   }
 

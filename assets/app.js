@@ -896,11 +896,15 @@ async function publish(c, btn) {
 const armed = (t, msg) => { if (t.dataset.armed) return true; t.dataset.armed = '1'; const o = t.innerHTML; t.innerHTML = msg; setTimeout(() => { if (t.isConnected) { delete t.dataset.armed; t.innerHTML = o; } }, 4000); return false; };
 const ibtn = (a, icon, label, attrs, cls) => `<button class="ib${cls ? ' ' + cls : ''}" data-a="${a}" ${attrs || ''} aria-label="${esc(label)}" title="${esc(label)}">${ic(icon)}</button>`;
 
+let ATAB = 'cur';
+const admTabs = () => `<div class="seg admtabs" role="tablist">${[['cur', 'Programi', 'book'], ['users', 'Përdoruesit', 'user']].map(([k, l, i]) => `<button role="tab" data-atab="${k}" aria-pressed="${ATAB === k}" aria-selected="${ATAB === k}">${ic(i)} ${l}</button>`).join('')}</div>`;
 function admin() {
+  if (ATAB === 'users') return usersView();
   if (AE) return unitEditor();
   const c = CUR, tot = c.levels.reduce((a, l) => a + l.units.length, 0);
   app.innerHTML = `<section class="band"><div class="wrap adm">
    <h1>Paneli i administratorit</h1>
+   ${admTabs()}
    <p class="lead">Rregullo programin mësimor. Çdo nivel ka njësitë e veta dhe mbyllet me një test; nxënësi kalon te niveli tjetër kur e kalon testin. Kush di më shumë e bën testin direkt dhe fillon nga niveli tjetër.</p>
    <div class="admbar">
     <div class="admst">${ic('cloud')}<span>${c.v ? `Ruajtur në server · ${esc(new Date(c.v).toLocaleString('sq-AL', { dateStyle: 'medium', timeStyle: 'short' }))}${c.by ? ' · nga ' + esc(c.by) : ''}` : 'Programi parazgjedhur (nga data.js). Ruhet në server me ndryshimin e parë.'}</span><b>${c.levels.length} nivele · ${tot} njësi</b></div>
@@ -957,6 +961,92 @@ function unitEditor() {
   </div></section>`;
   const gp = document.getElementById('ghp'); if (gp) gp.innerHTML = safeHTML(u.G.h);
 }
+/* ---------- PËRDORUESIT (administratori) ---------- */
+let UD = null, UQ = '', UPW = null, UT = null, UF = 'all';
+const fdate = ms => ms ? new Date(ms).toLocaleDateString('sq-AL', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+const fday = d => { if (!d) return 'asnjëherë'; const t = today(); if (d === t) return 'sot'; if (d === dayAt(-1)) return 'dje'; return new Date(d + 'T12:00').toLocaleDateString('sq-AL', { day: 'numeric', month: 'short' }); };
+async function loadUsers() {
+  try { UD = await api('users' + (UQ ? '?q=' + encodeURIComponent(UQ) : '')); }
+  catch (x) { if (x.status === 401) return expired(); UD = { err: x.message }; }
+  if (tab === 'admin' && ATAB === 'users') { const el = document.getElementById('ulist'); if (el) el.innerHTML = usersList(); else usersView(); }
+}
+function usersView() {
+  app.innerHTML = `<section class="band"><div class="wrap adm">
+   <h1>Paneli i administratorit</h1>
+   ${admTabs()}
+   <p class="lead">Shiko kush është regjistruar dhe sa mëson. Mund t'u japësh fjalëkalim të ri, t'i nxjerrësh nga pajisjet, t'i bllokosh, t'i heqësh nga renditja ose t'ua fshish llogarinë.</p>
+   <input class="search" id="uq" type="search" placeholder="Kërko sipas emrit…" value="${esc(UQ)}" autocomplete="off" spellcheck="false">
+   <div class="seg" id="uf">${[['all', 'Të gjithë'], ['act', 'Aktivë këtë javë'], ['adm', 'Administratorë'], ['dis', 'Të bllokuar'], ['ban', 'Jashtë renditjes']].map(([k, l]) => `<button data-uf="${k}" aria-pressed="${UF === k}">${l}</button>`).join('')}</div>
+   <div id="ulist">${usersList()}</div>
+  </div></section>`;
+  if (!UD) loadUsers();
+}
+function usersList() {
+  if (!UD) return '<p class="empty">Duke i ngarkuar përdoruesit…</p>';
+  if (UD.err) return `<p class="empty">${esc(UD.err)} <button class="btn sec sm" data-ureload>Provo sërish</button></p>`;
+  const wk = dayAt(-6), t = today(), all = UD.users;
+  const f = { all: () => true, act: x => x.last >= wk, adm: x => x.a, dis: x => x.dis, ban: x => x.ban }[UF] || (() => true);
+  const list = all.filter(f);
+  const stat = (n, l) => `<div><b>${n}</b><span>${l}</span></div>`;
+  return `<div class="ustats">${stat(UD.total, 'përdorues' + (UQ ? ' të gjetur' : ''))}${stat(all.filter(x => x.last === t).length, 'aktivë sot')}${stat(all.filter(x => x.last >= wk).length, 'këtë javë')}${stat(all.filter(x => x.dis).length, 'të bllokuar')}</div>
+   ${UD.total > UD.shown ? `<p class="mut sm">Po shfaqen ${UD.shown} më të rinjtë. Kërko me emër për të gjetur të tjerët.</p>` : ''}
+   ${list.length ? `<div class="ulist">${list.map(userCard).join('')}</div>` : '<p class="empty">Asnjë përdorues këtu.</p>'}`;
+}
+function userCard(x) {
+  const self = x.u === UD.me, locked = !self && (x.sa || (x.a && !UD.super));
+  const b = (a, icon, l, cls) => `<button class="btn sec sm${cls ? ' ' + cls : ''}" data-ua="${a}" data-u="${esc(x.u)}">${ic(icon)} ${l}</button>`;
+  const acts = [];
+  acts.push(x.ban ? b('unhide', 'trophy', 'Rikthe në renditje') : b('hide', 'trophy', 'Hiq nga renditja'));
+  if (!self && !locked) {
+    acts.push(b('password', 'lock', 'Fjalëkalim i ri'), b('logout', 'out', 'Nxirr nga pajisjet'));
+    acts.push(x.dis ? b('enable', 'check', 'Zhblloko') : b('disable', 'x', 'Blloko', 'warn'));
+    if (UD.super) acts.push(x.a ? b('unadmin', 'gear', 'Hiqi adminin') : b('admin', 'gear', 'Bëje admin'));
+    acts.push(b('delete', 'trash', 'Fshi', 'bad'));
+  }
+  const pills = [self ? '<span class="pill">Ti</span>' : '', x.sa ? `<span class="pill gold">${ic('gear')} Admin kryesor</span>` : x.a ? `<span class="pill gold">${ic('gear')} Admin</span>` : '',
+    x.dis ? `<span class="pill bad">${ic('lock')} I bllokuar</span>` : '', x.ban ? '<span class="pill">Jashtë renditjes</span>' : ''].join('');
+  const pw = UPW && UPW.u === x.u ? `<div class="upw">${ic('lock')}<span>Fjalëkalimi i ri i <b>${esc(x.u)}</b>: <code>${esc(UPW.pw)}</code><small class="mut">Jepja përdoruesit. Ai mund ta ndryshojë te Profili. Nuk do ta shohësh më pas rifreskimit.</small></span><button class="btn sm" data-ucopy="${esc(UPW.pw)}">Kopjo</button></div>` : '';
+  return `<article class="usr${x.dis ? ' dis' : ''}">
+   <div class="uh"><span class="uav">${esc(x.u[0].toUpperCase())}</span><div class="un"><b>${esc(x.u)}</b><div class="upl">${pills}</div></div></div>
+   <div class="um"><span>${ic('bolt')} ${x.xp} XP</span><span>${ic('flame')} ${x.s} ditë</span><span>${ic('layers')} ${x.l} nivele</span><span>${ic('clock')} aktiv ${fday(x.last)}</span><span>${ic('user')} që nga ${fdate(x.c)}</span></div>
+   ${pw}
+   ${acts.length ? `<div class="uacts">${acts.join('')}</div>` : ''}
+  </article>`;
+}
+const UMSG = { password: 'Kliko sërish: fjalëkalim i ri', logout: 'Kliko sërish: nxirre', disable: 'Kliko sërish: blloko', delete: 'Kliko sërish: fshi përgjithmonë', admin: 'Kliko sërish: bëje admin', unadmin: 'Kliko sërish: hiqi adminin' };
+const UOK = { hide: 'U hoq nga renditja.', unhide: 'U rikthye në renditje.', logout: 'U nxor nga të gjitha pajisjet.', disable: 'Llogaria u bllokua.', enable: 'Llogaria u zhbllokua.', admin: 'Tani është administrator.', unadmin: 'Nuk është më administrator.', delete: 'Llogaria u fshi.' };
+async function userAct(t) {
+  const a = t.dataset.ua, u = t.dataset.u;
+  if (UMSG[a] && !armed(t, UMSG[a])) return;
+  t.disabled = true;
+  try {
+    const j = await api('users', { method: 'POST', body: { action: a, u } });
+    const x = UD.users.find(y => y.u === u);
+    if (a === 'delete') { UD.users = UD.users.filter(y => y.u !== u); UD.total--; UD.shown--; }
+    else if (x) {
+      if (a === 'hide' || a === 'unhide') x.ban = a === 'hide';
+      if (a === 'disable' || a === 'enable') x.dis = a === 'disable';
+      if (a === 'admin' || a === 'unadmin') x.a = a === 'admin';
+    }
+    if (a === 'password') UPW = { u, pw: j.pw }; else if (UMSG[a] || UOK[a]) toast(`${ic('check')} ${UOK[a] || 'U krye.'}`, 'good');
+    if (a === 'hide' || a === 'unhide') LBC = {};
+  } catch (x) { if (x.status === 401) return expired(); toast(esc(x.message)); }
+  const el = document.getElementById('ulist'); if (el) el.innerHTML = usersList();
+}
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-atab],[data-ua],[data-uf],[data-ucopy],[data-ureload]'); if (!t) return;
+  const ds = t.dataset;
+  if (ds.atab) { ATAB = ds.atab; AE = null; UPW = null; if (ATAB === 'users') UD = null; admin(); return scrollTo(0, 0); }
+  if (ds.ua) return userAct(t);
+  if (ds.uf) { UF = ds.uf; document.querySelectorAll('[data-uf]').forEach(b => b.setAttribute('aria-pressed', b.dataset.uf === UF)); const el = document.getElementById('ulist'); if (el) el.innerHTML = usersList(); return; }
+  if (ds.ucopy !== undefined) { try { navigator.clipboard.writeText(ds.ucopy).then(() => toast(`${ic('check')} U kopjua.`, 'good')); } catch (x) { toast('Kopjoje me dorë.'); } return; }
+  if (ds.ureload !== undefined) { UD = null; const el = document.getElementById('ulist'); if (el) el.innerHTML = usersList(); loadUsers(); }
+});
+document.addEventListener('input', e => {
+  if (e.target.id !== 'uq') return;
+  UQ = e.target.value.trim().toLowerCase(); clearTimeout(UT); UT = setTimeout(loadUsers, 300);
+});
+
 async function adminAct(a, t) {
   const ds = t.dataset, li = +ds.li, k = +ds.k;
   if (a === 'cancel') { AE = null; admin(); return scrollTo(0, 0); }

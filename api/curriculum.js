@@ -3,7 +3,7 @@
    PUT    /api/curriculum {cur, base} → {cur}  vetëm administratori; base = versioni (v) mbi të cilin u bë ndryshimi
    DELETE /api/curriculum            → {cur:null}  vetëm administratori; rikthen parazgjedhjen */
 'use strict';
-const { db, auth, isAdmin, body, send, wrap } = require('./_lib');
+const { db, auth, adminOf, body, send, wrap } = require('./_lib');
 
 const KEY = 'curriculum';
 const MAX = 1500000;
@@ -67,7 +67,7 @@ module.exports = wrap(async (req, res) => {
 
   const me = await auth(req);
   if (!me) return send(res, 401, { error: 'Seanca ka skaduar. Hyr sërish.' });
-  if (!isAdmin(me)) return send(res, 403, { error: 'Vetëm administratori mund ta ndryshojë programin.' });
+  if (!(await adminOf(me))) return send(res, 403, { error: 'Vetëm administratori mund ta ndryshojë programin.' });
 
   const old = await db.get(KEY), oldV = old ? +JSON.parse(old).v || 0 : 0;
 

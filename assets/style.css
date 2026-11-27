@@ -685,3 +685,25 @@ body.inlesson .toast{bottom:auto;top:calc(76px + env(safe-area-inset-top))}
 .tp .h{position:relative}
 .tp .tl{position:absolute;left:8px;top:50%;transform:translateY(-50%);width:22px;height:22px;border-radius:6px;overflow:hidden;box-shadow:0 1px 4px #0000004d}
 .tp .tl svg{width:100%;height:100%;display:block}
+
+/* ---------- PËRDORUESIT (admin) ---------- */
+.admtabs{margin:4px 0 16px}.admtabs button{display:inline-flex;align-items:center;gap:6px}.admtabs .ic{width:18px;height:18px}
+.ustats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:14px 0}
+.ustats div{background:var(--card);border:2px solid var(--line);border-radius:var(--r);padding:12px;display:grid;gap:2px}
+.ustats b{font-size:24px;line-height:1.1}.ustats span{font-size:13px;color:var(--mut)}
+@media (max-width:560px){.ustats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.ulist{display:grid;gap:12px}
+.usr{background:var(--card);border:2px solid var(--line);border-radius:var(--r);padding:14px 16px;display:grid;gap:10px}
+.usr.dis{border-style:dashed;opacity:.85}
+.uh{display:flex;align-items:center;gap:12px}
+.uav{width:42px;height:42px;flex:none;border-radius:12px;display:grid;place-items:center;font-weight:700;font-size:18px;background:linear-gradient(160deg,var(--hero1),var(--hero2));color:var(--onhero)}
+.un{display:grid;gap:4px}.un b{font-size:17px;overflow-wrap:anywhere}
+.upl{display:flex;flex-wrap:wrap;gap:6px}.upl:empty{display:none}
+.pill.bad{background:color-mix(in srgb,var(--bad) 16%,var(--card));color:var(--bad)}
+.um{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--mut)}
+.um span{display:inline-flex;align-items:center;gap:4px}.um .ic{width:15px;height:15px}
+.uacts{display:flex;flex-wrap:wrap;gap:8px}
+.uacts .btn.warn{color:var(--accd)}.uacts .btn.bad{color:var(--bad)}
+.upw{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:color-mix(in srgb,var(--gold) 14%,var(--card));border:1.5px solid color-mix(in srgb,var(--gold) 45%,var(--line));border-radius:14px;padding:10px 12px}
+.upw>span{display:grid;gap:2px;flex:1 1 220px}
+.upw code{font-size:20px;font-weight:700;letter-spacing:.08em;user-select:all}

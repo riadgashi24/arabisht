@@ -3,7 +3,7 @@
         d = sot, w = java (e hënë–e diel), m = muaji, a = gjithsej. Lexohet nga të gjithë; "me" vetëm me seancë.
    POST /api/leaderboard {action:'hide'|'unhide', u}  vetëm administratori: heq / rikthen një përdorues (p.sh. për mashtrim) */
 'use strict';
-const { db, auth, isAdmin, periods, LBK, lbRemove, lbPick, body, send, wrap } = require('./_lib');
+const { db, auth, adminOf, periods, LBK, lbRemove, lbPick, body, send, wrap } = require('./_lib');
 const G = require('./_groups');
 
 const TOP = 50;
@@ -28,13 +28,13 @@ module.exports = wrap(async (req, res) => {
     const list = top.map(([u, xp], i) => { let m = {}; try { m = JSON.parse(metas[i]) || {}; } catch (e) {} return { u, xp, s: +m.s || 0, l: +m.l || 0 }; });
     const me = await auth(req);
     const mine = me ? await db.zme(k, me) : null;
-    return send(res, 200, { p, period: P, top: list, me: me ? { u: me, rank: mine ? mine.rank : 0, score: mine ? mine.score : 0 } : null, total: await db.zcard(k), admin: isAdmin(me) });
+    return send(res, 200, { p, period: P, top: list, me: me ? { u: me, rank: mine ? mine.rank : 0, score: mine ? mine.score : 0 } : null, total: await db.zcard(k), admin: await adminOf(me) });
   }
 
   if (req.method === 'POST') {
     const me = await auth(req);
     if (!me) return send(res, 401, { error: 'Seanca ka skaduar. Hyr sërish.' });
-    if (!isAdmin(me)) return send(res, 403, { error: 'Vetëm administratori.' });
+    if (!(await adminOf(me))) return send(res, 403, { error: 'Vetëm administratori.' });
     const b = await body(req), u = String((b && b.u) || '').trim().toLowerCase();
     if (!/^[a-z0-9_.]{3,20}$/.test(u)) return send(res, 400, { error: 'Emër i pavlefshëm.' });
     if (b.action === 'hide') { await db.set('lbban:' + u, '1'); await lbRemove(u); return send(res, 200, { ok: true }); }
