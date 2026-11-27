@@ -342,6 +342,39 @@ const anim = () => { app.classList.remove('anim'); void app.offsetWidth; app.cla
 const ring = (v, max, cls) => { const r = 26, c = 2 * Math.PI * r, f = Math.min(1, v / Math.max(1, max)); return `<svg class="ring ${cls || ''}" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="${r}" class="rt"/><circle cx="32" cy="32" r="${r}" class="rv" style="--c:${c.toFixed(1)};stroke-dasharray:${c.toFixed(1)};stroke-dashoffset:${(c * (1 - f)).toFixed(1)}" transform="rotate(-90 32 32)"/></svg>`; };
 const week = () => { const t = today(); return `<div class="week">${[6, 5, 4, 3, 2, 1, 0].map(n => { const k = shift(t, -n), on = !!S.log[k], fz = !on && S.frz[k]; return `<div class="wd${on ? ' on' : ''}${fz ? ' fz' : ''}${n === 0 ? ' now' : ''}"><i>${on ? ic('flame') : fz ? ic('snow') : ''}</i><span>${WD[new Date(k + 'T12:00').getDay()]}</span></div>`; }).join('')}</div>`; };
 
+/* ---------- MOTIVIMI: thënie nga selefi dhe dijetarët ---------- */
+const MOTIV = [
+  { k: 'Gjuha', ar: 'تَعَلَّمُوا الْعَرَبِيَّةَ فَإِنَّهَا مِنْ دِينِكُمْ', sq: 'Mësoni arabishten, sepse ajo është pjesë e fesë suaj.', by: 'Umer ibn el-Hattabi (r.a.)' },
+  { k: 'Gjuha', ar: 'تَعَلَّمُوا الْعَرَبِيَّةَ فَإِنَّهَا تُثَبِّتُ الْعَقْلَ وَتَزِيدُ فِي الْمُرُوءَةِ', sq: 'Mësoni arabishten, sepse ajo e forcon mendjen dhe e shton fisnikërinë.', by: 'Umer ibn el-Hattabi (r.a.)' },
+  { k: 'Gjuha', ar: 'تَفَقَّهُوا فِي السُّنَّةِ، وَتَفَقَّهُوا فِي الْعَرَبِيَّةِ، وَأَعْرِبُوا الْقُرْآنَ فَإِنَّهُ عَرَبِيٌّ', sq: 'Kuptojeni mirë Sunnetin, kuptojeni mirë arabishten dhe lexojeni Kuranin me i‘rab të saktë, sepse ai është arab.', by: 'Umer (r.a.), në letrën drejtuar Ebu Musës' },
+  { k: 'Gjuha', ar: 'تَعَلَّمُوا اللَّحْنَ وَالْفَرَائِضَ وَالسُّنَنَ كَمَا تَعَلَّمُونَ الْقُرْآنَ', sq: 'Mësoni gjuhën e saktë, ndarjen e trashëgimisë dhe sunnetet, ashtu siç e mësoni Kuranin.', by: 'Umer ibn el-Hattabi (r.a.)' },
+  { k: 'Gjuha', ar: 'تَعَلَّمُوهَا، فَإِنَّ الرَّجُلَ يَقْرَأُ الْآيَةَ فَيَعْيَى بِوَجْهِهَا فَيَهْلِكُ فِيهَا', sq: 'E pyetën për mësimin e arabishtes dhe tha: Mësojeni, sepse njeriu e lexon ajetin, nuk ia gjen kuptimin dhe shkatërrohet në të.', by: 'El-Hasen el-Basri' },
+  { k: 'Gjuha', ar: 'مَا جَهِلَ النَّاسُ وَلَا اخْتَلَفُوا إِلَّا لِتَرْكِهِمْ لِسَانَ الْعَرَبِ', sq: 'Njerëzit nuk ranë në padije dhe në përçarje, veçse kur e lanë gjuhën e arabëve.', by: 'Imam Shafiu' },
+  { k: 'Gjuha', ar: 'فَإِنَّ اللُّغَةَ الْعَرَبِيَّةَ مِنَ الدِّينِ، وَمَعْرِفَتُهَا فَرْضٌ وَاجِبٌ', sq: 'Gjuha arabe është pjesë e fesë dhe njohja e saj është detyrë, sepse Kurani dhe Sunneti nuk kuptohen pa të.', by: 'Ibn Tejmije, «Iktida es-Sirat el-Mustekim»' },
+  { k: 'Gjuha', ar: 'إِنَّا أَنزَلْنَاهُ قُرْآنًا عَرَبِيًّا لَّعَلَّكُمْ تَعْقِلُونَ', sq: 'Ne e zbritëm atë Kuran në arabisht, që ju ta kuptoni.', by: 'Kurani, Jusuf 12:2' },
+  { k: 'Dija', ar: 'لَا يُسْتَطَاعُ الْعِلْمُ بِرَاحَةِ الْجِسْمِ', sq: 'Dija nuk arrihet me rehatinë e trupit.', by: 'Jahja ibn Ebi Kethir (te «Sahihu» i Muslimit)' },
+  { k: 'Dija', ar: 'ذَكَاءٌ وَحِرْصٌ وَاجْتِهَادٌ وَبُلْغَةٌ ... وَصُحْبَةُ أُسْتَاذٍ وَطُولُ زَمَانِ', sq: 'Dijen s’e arrin pa gjashtë gjëra: zgjuarsi, zell, përpjekje, mjete jetese, shoqërimin e mësuesit dhe kohë të gjatë.', by: 'Imam Shafiu' },
+  { k: 'Dija', ar: 'أَحَبُّ الْأَعْمَالِ إِلَى اللهِ أَدْوَمُهَا وَإِنْ قَلَّ', sq: 'Veprat më të dashura te Allahu janë ato më të vazhdueshmet, edhe nëse janë të pakta.', by: 'Pejgamberi ﷺ (Buhariu dhe Muslimi)' },
+  { k: 'Koha', ar: 'مَا نَدِمْتُ عَلَى شَيْءٍ نَدَمِي عَلَى يَوْمٍ غَرَبَتْ شَمْسُهُ نَقَصَ فِيهِ أَجَلِي وَلَمْ يَزْدَدْ فِيهِ عَمَلِي', sq: 'Për asgjë s’jam penduar si për një ditë që i perëndoi dielli: m’u pakësua jeta, e nuk m’u shtua vepra.', by: 'Abdullah ibn Mes‘udi (r.a.)' },
+  { k: 'Koha', ar: 'يَا ابْنَ آدَمَ، إِنَّمَا أَنْتَ أَيَّامٌ، كُلَّمَا ذَهَبَ يَوْمٌ ذَهَبَ بَعْضُكَ', sq: 'O bir i Ademit, ti je vetëm disa ditë; sa herë që shkon një ditë, shkon një pjesë prej teje.', by: 'El-Hasen el-Basri' },
+  { k: 'Gara', ar: 'وَفِي ذَٰلِكَ فَلْيَتَنَافَسِ الْمُتَنَافِسُونَ', sq: 'E për këtë le të garojnë garuesit.', by: 'Kurani, El-Mutaffifin 83:26' },
+  { k: 'Gara', ar: 'فَاسْتَبِقُوا الْخَيْرَاتِ', sq: 'Garoni në punë të mira.', by: 'Kurani, El-Bekare 2:148' },
+  { k: 'Gara', ar: 'لَا أُسَابِقُكَ إِلَى شَيْءٍ أَبَدًا', sq: 'Umeri solli gjysmën e pasurisë për sadaka, Ebu Bekri e solli të gjithën. Umeri tha: «Nuk do të garoj më kurrë me ty për asgjë», sepse e kuptoi se s’e kalonte dot.', by: 'Umeri për Ebu Bekrin (r.a.) · Ebu Davudi, Tirmidhiu' },
+  { k: 'Gara', ar: 'إِذَا رَأَيْتَ الرَّجُلَ يُنَافِسُكَ فِي الدُّنْيَا فَنَافِسْهُ فِي الْآخِرَةِ', sq: 'Kur sheh dikë që garon me ty për dynjanë, garo ti me të për ahiretin.', by: 'El-Hasen el-Basri' },
+  { k: 'Gara', ar: 'إِنِ اسْتَطَعْتَ أَلَّا يَسْبِقَكَ إِلَى اللهِ أَحَدٌ فَافْعَلْ', sq: 'Nëse mundesh që askush të mos të paraprijë drejt Allahut, bëje.', by: 'Uhejb ibn el-Verd' }
+];
+const MKT = { Gjuha: 'Për gjuhën arabe', Dija: 'Për kërkimin e dijes', Koha: 'Për vlerën e kohës', Gara: 'Garoni në të mira' };
+let mvi = -1;
+const motivIdx = () => { if (mvi < 0) { const t = today(); let h = 0; for (const c of t) h = (h * 31 + c.charCodeAt(0)) >>> 0; mvi = h % MOTIV.length; } return mvi; };
+const motivCard = (q, more) => `<figure class="motiv"><figcaption class="mk">${ic('book')} ${esc(MKT[q.k] || 'Motivim')}</figcaption>
+  <blockquote><p class="ar">${esc(q.ar)}</p><p class="msq">${esc(q.sq)}</p></blockquote>
+  <div class="mby"><cite>${esc(q.by)}</cite>${more ? '<button class="btn sec sm" data-motiv>Një thënie tjetër</button>' : ''}</div></figure>`;
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-motiv]'); if (!b) return;
+  mvi = (motivIdx() + 1 + Math.floor(Math.random() * (MOTIV.length - 1))) % MOTIV.length;
+  const f = b.closest('.motiv'); if (f) f.outerHTML = motivCard(MOTIV[mvi], true);
+});
+
 /* ---------- PYETJET ---------- */
 const mk = q => ({ k: 'mcq', t: 'Zgjidh përgjigjen e saktë', p: q.p, opts: shuffle(q.o), a: q.o[0], optAr: !!q.ar });
 const vq = (ws, pool, n) => shuffle(ws.map((w, i) => {
@@ -363,14 +396,14 @@ function steps(i) {
     case 6: return [{ k: 'quiz', test: true, q: shuffle(vq(all, all, 10).concat(shuffle(u.G.ex).slice(0, 4).map(mk), old, bq(u, all).slice(0, 2))) }];
   }
 }
-/* testi i nivelit: fjalor, gramatikë dhe fjali nga të gjitha njësitë e nivelit */
+/* testi i nivelit: fjalor, gramatikë dhe ndërtim fjalish nga të gjitha njësitë e nivelit (pa dialogë) */
 function lvQuestions(li) {
   const us = LVI[li].map(ui => U[ui]), all = us.flatMap(u => u.A.concat(u.B));
   const per = Math.max(1, Math.ceil(8 / us.length));
   const g = shuffle(us.flatMap(u => shuffle(u.G.ex).slice(0, per))).slice(0, 8).map(mk);
   const b = shuffle(us.flatMap(u => shuffle(bq(u, all)).slice(0, 1))).slice(0, 4);
-  const d = shuffle(us.flatMap(u => u.D1.q.concat(u.D2.q))).slice(0, 3).map(mk);
-  return shuffle(vq(shuffle(all).slice(0, 15), all).concat(g, d, b));
+  /* pa pyetje nga dialogët: ato janë për kuptim gjatë mësimit, jo për provim */
+  return shuffle(vq(shuffle(all).slice(0, 15), all).concat(g, b));
 }
 
 /* ---------- KOKA DHE NAVIGIMI ---------- */
@@ -523,6 +556,7 @@ function home() {
    <div class="today">${th}${skip}</div>
   </div></section>
   ${nudge || installBanner() ? `<section class="band tight"><div class="wrap">${nudge}${installBanner()}</div></section>` : ''}
+  <section class="band tight"><div class="wrap">${motivCard(MOTIV[motivIdx()], true)}</div></section>
   <section class="band"><div class="wrap">
    ${LV.map((_, li) => levelSec(li, nx, ci)).join('')}
    <details class="how"><summary>Pse funksionon kjo mënyrë?</summary><div class="howg">
@@ -869,7 +903,7 @@ function admin() {
    </article>`).join('')}
    <details class="how"><summary>Si funksionojnë nivelet për nxënësin?</summary><div class="howg">
     <div><b>Rruga.</b> Çdo njësi ka 7 ditë (fjalor, dialog, gramatikë, përsëritje, të folur, test i javës). Pas njësisë së fundit të nivelit hapet testi i nivelit.</div>
-    <div><b>Testi i nivelit.</b> Pyetje nga fjalori, gramatika, dialogët dhe ndërtimi i fjalive të të gjitha njësive të nivelit. Kalohet me pragun që vendos këtu.</div>
+    <div><b>Testi i nivelit.</b> Pyetje nga fjalori, gramatika dhe ndërtimi i fjalive të të gjitha njësive të nivelit. Pyetjet e dialogëve nuk hyjnë në provime. Kalohet me pragun që vendos këtu.</div>
     <div><b>Kalimi përpara.</b> Kush di më shumë shtyp “Kalo me test”. Nëse e kalon, niveli shënohet i kaluar dhe fillon direkt nga niveli tjetër.</div>
     <div><b>Progresi ruhet.</b> Ndryshimet e programit nuk e fshijnë progresin e nxënësve; fjalët dhe mësimet e kryera mbeten.</div>
    </div></details>
@@ -1115,6 +1149,7 @@ function results(r) {
     <div class="rtile tm"><span>${ic('clock')} Koha</span><b>${mmss(r.ms)}</b></div>
    </div>
    <div class="chipsrow">${r.perfect ? `<span class="pill gold">${ic('gem')} Pa asnjë gabim · +10 XP</span>` : ''}${r.goalHit ? `<span class="pill ok">${ic('target')} Qëllimi i ditës u arrit!</span>` : ''}${r.words ? `<span class="pill">${ic('book')} ${r.words} fjalë të reja në përsëritje</span>` : ''}${r.pct ? `<span class="pill ok">${ic('trophy')} Testi: ${r.pct}%</span>` : ''}${r.unlock ? `<span class="pill gold">${ic('layers')} U hap ${esc(r.unlock)}</span>` : ''}</div>
+   ${motivCard(pick(MOTIV.filter(q => q.k === 'Gara' || q.k === 'Gjuha')), false)}
    ${r.nb.length ? `<div class="newb"><h3>Medalje e re!</h3>${r.nb.map((b, j) => `<div class="bd got pop" style="--i:${j}"><i>${ic(b[3])}</i><b>${esc(b[1])}</b><span>${esc(b[2])}</span></div>`).join('')}</div>` : ''}
   </div></section><div class="dock"><div class="din"><button class="btn big full" data-after>Vazhdo</button></div></div>`;
   anim(); countUp(); sfx('win'); buzz([15, 60, 15]); setTimeout(() => confetti(), 150);
