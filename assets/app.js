@@ -298,6 +298,25 @@ function paintSync() {
   el.innerHTML = ic('cloud') + (syncState === 'busy' ? 'Duke ruajtur…' : syncState === 'off' ? 'Pa lidhje: do të ruhet kur të kthehet interneti' : lastSync ? 'I ruajtur në llogari · ' + ago(lastSync) : 'I ruajtur në llogari');
 }
 
+/* ---------- LOGOJA: merr ngjyrat e temës aktive ---------- */
+const GLYPH = 'M287.3 200.8L277.9 231.3Q264.2 237.0 251.3 244.4Q238.4 251.8 228.4 260.7Q218.3 269.6 212.2 279.8Q206.1 290.1 206.1 301.3L206.1 301.3Q206.1 310.2 212.8 316.8Q219.5 323.4 233.3 327.7Q247.1 332.0 268.3 334.1Q289.6 336.2 318.6 336.2L318.6 336.2L319.9 341.5Q313.7 344.3 305.1 347.8Q296.5 351.3 287.3 354.5Q278.2 357.7 269.7 359.8Q261.3 362 255.6 362L255.6 362Q242.3 362 232.8 359.5Q223.3 357.0 216.7 352.6Q210.2 348.3 206.2 342.6Q202.2 336.9 200.1 330.4Q198.0 324.0 197.3 317.3Q196.6 310.5 196.6 304.2L196.6 304.2Q196.6 292.7 198.8 283.2Q201.1 273.8 204.4 266.2Q207.7 258.6 211.5 253.0Q215.4 247.4 218.6 243.6L218.6 243.6Q214.0 241.2 209.2 237.9Q204.5 234.5 200.7 230.4Q196.9 226.4 194.5 221.8Q192.1 217.3 192.1 212.6L192.1 212.6Q192.1 204.2 195.4 195.3Q198.7 186.4 203.9 179.0Q209.1 171.5 215.4 166.8Q221.7 162.0 227.9 162.0L227.9 162.0Q233.5 162.0 238.7 163.8Q244.0 165.5 248.6 168.4Q253.1 171.3 257.1 175.0Q261.0 178.8 263.9 182.8L263.9 182.8L261.3 185.6Q259.6 184.7 257.1 183.7Q254.7 182.8 251.9 181.9Q249.2 181.1 246.4 180.5Q243.6 180.0 241.1 180.0L241.1 180.0Q237.8 180.0 233.1 180.9Q228.3 181.9 223.3 183.7Q218.2 185.4 213.4 187.8Q208.5 190.2 205.2 192.9L205.2 192.9Q205.2 196.2 207.1 199.6Q209.1 203.0 212.1 205.9Q215.1 208.8 219.0 211.4Q222.8 214.0 226.6 215.9Q230.4 217.7 233.8 218.7Q237.3 219.8 239.4 219.8L239.4 219.8Q244.1 219.8 247.9 218.5L247.9 218.5L287.3 200.8Z';
+/* c = { h1, h2, g, on } ; pa c përdor variablat CSS (logoja brenda faqes ndryshon vetë me temën) */
+const logoSvg = (c, id) => { id = id || 'lg'; c = c || { h1: 'var(--hero1)', h2: 'var(--hero2)', g: 'var(--gold)', on: 'var(--onhero)' };
+  const sq = '<rect x="-131.5" y="-131.5" width="263" height="263" rx="14"/>';
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><defs><linearGradient id="${id}b" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:${c.h2}"/><stop offset="1" style="stop-color:${c.h1}"/></linearGradient><radialGradient id="${id}l" cx=".5" cy=".38" r=".6"><stop offset="0" stop-color="#fff" stop-opacity=".2"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs>`
+    + `<rect width="512" height="512" rx="112" style="fill:url(#${id}b)"/><rect width="512" height="512" rx="112" fill="url(#${id}l)"/>`
+    + `<g transform="translate(256 256)" fill="none" stroke-width="11" stroke-linejoin="round" style="stroke:${c.g}">${sq}<g transform="rotate(45)">${sq}</g></g>`
+    + `<circle cx="256" cy="256" r="124" fill="#000" fill-opacity=".28"/><path d="${GLYPH}" style="fill:${c.on}"/></svg>`; };
+let favLink = null;
+function themeFavicon() {
+  try {
+    const cs = getComputedStyle(document.documentElement), v = n => cs.getPropertyValue(n).trim();
+    const c = { h1: v('--hero1') || '#0f4c5c', h2: v('--hero2') || '#16707f', g: v('--gold') || '#f4b13e', on: v('--onhero') || '#f6f2ea' };
+    if (!favLink) { document.querySelectorAll('link[rel=icon]').forEach(l => l.remove()); favLink = document.createElement('link'); favLink.rel = 'icon'; favLink.type = 'image/svg+xml'; document.head.appendChild(favLink); }
+    favLink.href = 'data:image/svg+xml,' + encodeURIComponent(logoSvg(c, 'f'));
+  } catch (e) {}
+}
+
 /* ---------- TEMAT ---------- */
 const THEMES = [['auto', 'Automatike', 'Oaza ditën, Mesnata natën'], ['oaz', 'Oaza', 'Kaltër e thellë dhe koral'], ['rere', 'Shkretëtira', 'Rërë, terrakotë, diell'], ['trendafil', 'Trëndafili', 'Rozë e butë dhe vishnje'], ['smerald', 'Smeraldi', 'Gjelbër e errët dhe ar'], ['mesnate', 'Mesnata', 'Indigo, yje dhe rozë']];
 const mq = matchMedia('(prefers-color-scheme: dark)');
@@ -307,6 +326,7 @@ function applyTheme() {
   document.documentElement.dataset.theme = t;
   const m = document.querySelector('meta[name=theme-color]');
   if (m) m.content = getComputedStyle(document.documentElement).getPropertyValue('--hero1').trim() || '#0f4c5c';
+  themeFavicon();
 }
 try { mq.addEventListener('change', applyTheme); } catch (e) {}
 
@@ -414,7 +434,7 @@ let tab = 'home';
 function chrome() {
   const si = streakInfo(), TABS = TABSF();
   top.innerHTML = `<div class="in">
-  <button class="brand" data-tab="home" aria-label="Mëso Arabisht, faqja kryesore"><img class="logo" src="/icons/icon.svg" alt="" width="40" height="40"><span class="bt">Mëso <b>Arabisht</b></span></button>
+  <button class="brand" data-tab="home" aria-label="Mëso Arabisht, faqja kryesore"><span class="logo" aria-hidden="true">${logoSvg()}</span><span class="bt">Mëso <b>Arabisht</b></span></button>
   <nav class="tabs" aria-label="Navigimi kryesor">${TABS.map(([k, l, i]) => `<button class="tab" data-tab="${k}"${tab === k ? ' aria-current="page"' : ''}>${ic(i)}<span>${l}</span>${k === 'rank' && GRP.invites.length ? '<i class="dot" aria-label="ftesë e re"></i>' : ''}</button>`).join('')}</nav>
   <div class="chips">
    <button class="chip fire${si.done ? ' lit' : ''}" data-tab="stats" aria-label="Seria: ${si.n} ditë radhazi">${ic('flame')}<b>${si.n}</b></button>
@@ -788,7 +808,7 @@ function me() {
    <h2>Aplikacioni në telefon</h2>
    ${STANDALONE() ? `<div class="nudge inst">${ic('check')}<div><b>E ke të instaluar</b><span>Po e përdor si aplikacion nga ekrani i telefonit.</span></div></div>` : `<div class="nudge inst">${ic('phone')}<div><b>Shkarkoje në ${IOS ? (IPAD ? 'iPad' : 'iPhone') : 'telefon'}</b><span>Ikonë në ekran, ekran i plotë, punon pa internet. Pa App Store.</span></div><button class="btn sm" data-inst>${ic('dl')} Shkarko</button></div>`}
    <h2>Tema</h2>
-   <div class="themes">${THEMES.map(([k, n, d]) => `<button class="tp${(S.theme || 'auto') === k ? ' sel' : ''}" data-theme-pick="${k}" ${k === 'auto' ? '' : `data-theme="${k}"`} aria-pressed="${(S.theme || 'auto') === k}"><span class="pv">${k === 'auto' ? '<span class="half" data-theme="oaz"></span><span class="half" data-theme="mesnate"></span>' : '<span class="h"></span><span class="c"><i></i><i></i></span><span class="b"></span>'}</span><b>${n}</b><small>${d}</small>${(S.theme || 'auto') === k ? `<span class="tick">${ic('check')}</span>` : ''}</button>`).join('')}</div>
+   <div class="themes">${THEMES.map(([k, n, d]) => `<button class="tp${(S.theme || 'auto') === k ? ' sel' : ''}" data-theme-pick="${k}" ${k === 'auto' ? '' : `data-theme="${k}"`} aria-pressed="${(S.theme || 'auto') === k}"><span class="pv">${k === 'auto' ? '<span class="half" data-theme="oaz"></span><span class="half" data-theme="mesnate"></span>' : `<span class="h"><span class="tl">${logoSvg(null, 'tp' + k)}</span></span><span class="c"><i></i><i></i></span><span class="b"></span>`}</span><b>${n}</b><small>${d}</small>${(S.theme || 'auto') === k ? `<span class="tick">${ic('check')}</span>` : ''}</button>`).join('')}</div>
    <h2>Qëllimi ditor</h2>
    <div class="goals">${GOALS.map(([v, n, d]) => `<button data-goal="${v}" aria-pressed="${S.goal === v}"><b>${n}</b><span>${v} XP · ${d}</span></button>`).join('')}</div>
    <h2>Cilësimet</h2>
